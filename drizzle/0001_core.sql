@@ -1,0 +1,14 @@
+CREATE TABLE IF NOT EXISTS documents(id TEXT PRIMARY KEY,ownerId TEXT NOT NULL REFERENCES owners(id),moduleId TEXT NOT NULL REFERENCES modules(id),hash TEXT NOT NULL,mime TEXT NOT NULL,role TEXT NOT NULL,storageKey TEXT NOT NULL,originalName TEXT NOT NULL,byteLength INTEGER NOT NULL,createdAt TEXT NOT NULL,UNIQUE(ownerId,moduleId,role,hash));
+CREATE TABLE IF NOT EXISTS papers(id TEXT PRIMARY KEY,ownerId TEXT NOT NULL REFERENCES owners(id),moduleId TEXT NOT NULL REFERENCES modules(id),title TEXT NOT NULL,questionDocumentId TEXT NOT NULL REFERENCES documents(id),solutionDocumentId TEXT REFERENCES documents(id),solutionOrigin TEXT,state TEXT NOT NULL,activeRevisionId TEXT,createdAt TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS revisions(id TEXT PRIMARY KEY,paperId TEXT NOT NULL REFERENCES papers(id),version INTEGER NOT NULL,status TEXT NOT NULL,contentJson TEXT NOT NULL,createdAt TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS assets(id TEXT PRIMARY KEY,documentId TEXT NOT NULL REFERENCES documents(id),role TEXT NOT NULL,page INTEGER NOT NULL,storageKey TEXT NOT NULL,UNIQUE(documentId,page));
+CREATE TABLE IF NOT EXISTS sessions(id TEXT PRIMARY KEY,paperId TEXT NOT NULL REFERENCES papers(id),revisionId TEXT NOT NULL REFERENCES revisions(id),position INTEGER NOT NULL DEFAULT 0,createdAt TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS sessionItems(sessionId TEXT NOT NULL REFERENCES sessions(id),questionId TEXT NOT NULL,draftJson TEXT,draftVersion INTEGER NOT NULL DEFAULT 0,skipReason TEXT,excluded INTEGER NOT NULL DEFAULT 0,PRIMARY KEY(sessionId,questionId));
+CREATE TABLE IF NOT EXISTS attempts(id TEXT PRIMARY KEY,sessionId TEXT NOT NULL REFERENCES sessions(id),questionId TEXT NOT NULL,requestId TEXT NOT NULL UNIQUE,responseJson TEXT NOT NULL,status TEXT NOT NULL,feedbackJson TEXT,disputed INTEGER NOT NULL DEFAULT 0,createdAt TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS messages(id TEXT PRIMARY KEY,attemptId TEXT NOT NULL REFERENCES attempts(id),role TEXT NOT NULL,text TEXT NOT NULL,status TEXT NOT NULL,requestId TEXT UNIQUE,createdAt TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS jobs(id TEXT PRIMARY KEY,kind TEXT NOT NULL,dedupeKey TEXT NOT NULL UNIQUE,status TEXT NOT NULL,stage TEXT NOT NULL,payload TEXT NOT NULL,checkpoint TEXT,attempts INTEGER NOT NULL DEFAULT 0,availableAt INTEGER NOT NULL,leaseToken TEXT,leaseUntil INTEGER,errorCode TEXT,errorMessage TEXT,createdAt TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS batchConfirmations(requestId TEXT PRIMARY KEY,moduleId TEXT NOT NULL REFERENCES modules(id),inputHash TEXT NOT NULL,resultJson TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS extractionCache(documentId TEXT PRIMARY KEY REFERENCES documents(id),version TEXT NOT NULL,contentJson TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS jobs_ready ON jobs(status,availableAt,leaseUntil);
+CREATE INDEX IF NOT EXISTS papers_module ON papers(moduleId);
+CREATE INDEX IF NOT EXISTS attempts_session ON attempts(sessionId,questionId,createdAt);

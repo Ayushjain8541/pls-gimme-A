@@ -1,0 +1,2 @@
+import {setTimeout as pause} from 'node:timers/promises';import {getDb} from '../server/db/client';import {OpenAiGateway} from '../server/ai/openai';import {runNextJob} from './runner';
+const db=getDb(),ai=new OpenAiGateway();console.log('Paper worker is running.');let running=true;process.on('SIGTERM',()=>{running=false;});process.on('SIGINT',()=>{running=false;});while(running){if(!await runNextJob(db,ai))await pause(1000);}db.close();
