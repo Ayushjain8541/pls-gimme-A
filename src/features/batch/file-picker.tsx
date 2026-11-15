@@ -87,6 +87,11 @@ export function FilePicker({
       <button
         type="button"
         className="button small"
+        aria-label={
+          role === "question"
+            ? "Choose question papers"
+            : "Choose solution files"
+        }
         disabled={disabled}
         onClick={() => input.current?.click()}
       >
@@ -96,7 +101,7 @@ export function FilePicker({
       <p id={helpId}>
         {role === "question"
           ? "PDF · Up to 25 MiB each"
-          : "PDF, Markdown, or text · Optional"}
+          : "PDF ≤25 MiB · Text/Markdown ≤1 MiB · Optional"}
       </p>
       <p className="file-selection-count" role="status" aria-live="polite">
         {announcement || `${files.length} files selected`}

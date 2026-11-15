@@ -1906,3 +1906,27 @@ input[type="checkbox"] {
   text-align: left;
   overflow-wrap: anywhere;
 }
+.conversion-issues strong {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.conversion-issues p,
+.conversion-notes p {
+  margin-top: 7px;
+}
+.conversion-issues ul,
+.conversion-notes ul {
+  padding-left: 19px;
+  margin-bottom: 5px;
+}
+.conversion-issues li,
+.conversion-notes li {
+  margin: 7px 0;
+  overflow-wrap: anywhere;
+}
+.conversion-issues summary,
+.conversion-notes summary {
+  cursor: pointer;
+  font-weight: 550;
+}

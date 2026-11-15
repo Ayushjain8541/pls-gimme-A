@@ -126,6 +126,20 @@ export function Review({ paperId }: { paperId: string }) {
       setBusy(false);
     }
   }
+  async function reprocess() {
+    setBusy(true);
+    setError("");
+    try {
+      await post(`/api/papers/${paperId}/reprocess`);
+      setMessage(
+        "Converting the stored originals again. Return to the module to follow progress. Previous saved versions are preserved.",
+      );
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
   if (!data || !content)
     return (
       <p className={loadError ? "error" : "loading"}>
@@ -150,24 +164,65 @@ export function Review({ paperId }: { paperId: string }) {
             files.
           </p>
         </div>
-        <a
-          className="button"
-          href={`/api/documents/${data.paper.questionDocumentId}/source?mode=review`}
-          target="_blank"
-          rel="noreferrer"
-        >
-          Original paper
-          <ExternalLink size={13} />
-        </a>
+        <div className="inline-actions">
+          <button
+            className="button"
+            disabled={busy}
+            onClick={() => void reprocess()}
+          >
+            Convert again
+          </button>
+          <a
+            className="button"
+            href={`/api/documents/${data.paper.questionDocumentId}/source?mode=review`}
+            target="_blank"
+            rel="noreferrer"
+          >
+            Original paper
+            <ExternalLink size={13} />
+          </a>
+        </div>
       </div>
       {content.issues.length > 0 && (
-        <div className="notice">
-          <AlertCircle
-            size={14}
-            style={{ verticalAlign: "middle", marginRight: 7 }}
-          />
-          {content.issues.join(" · ")}
-        </div>
+        <section
+          className="notice conversion-issues"
+          aria-label="Conversion issues"
+        >
+          <strong>
+            <AlertCircle size={14} /> {new Set(content.issues).size} conversion
+            item{new Set(content.issues).size === 1 ? "" : "s"} need attention
+          </strong>
+          <p>
+            These concern the conversion, not whether your original questions
+            and answers are correct.
+          </p>
+          <ul>
+            {[...new Set(content.issues)].slice(0, 4).map((issue, i) => (
+              <li key={i}>{issue}</li>
+            ))}
+          </ul>
+          {new Set(content.issues).size > 4 && (
+            <details>
+              <summary>Show all conversion issues</summary>
+              <ul>
+                {[...new Set(content.issues)].slice(4).map((issue, i) => (
+                  <li key={i}>{issue}</li>
+                ))}
+              </ul>
+            </details>
+          )}
+        </section>
+      )}
+      {!!content.notes?.length && (
+        <details className="notice conversion-notes">
+          <summary>Preparation notes ({new Set(content.notes).size})</summary>
+          <p>Informational only — these do not block practice.</p>
+          <ul>
+            {[...new Set(content.notes)].map((note, i) => (
+              <li key={i}>{note}</li>
+            ))}
+          </ul>
+        </details>
       )}
       {data.paper.solutionDocumentId && (
         <a

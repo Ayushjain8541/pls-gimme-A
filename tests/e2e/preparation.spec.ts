@@ -36,13 +36,13 @@ async function uploadPaper(
     .getByRole("button", { name: "Upload papers", exact: true })
     .first()
     .click();
-  await page.getByLabel("Question papers").setInputFiles({
+  await page.getByLabel("Question papers", { exact: true }).setInputFiles({
     name: "paper.pdf",
     mimeType: "application/pdf",
     buffer: question,
   });
   if (solutions)
-    await page.getByLabel("Solution files").setInputFiles({
+    await page.getByLabel("Solution files", { exact: true }).setInputFiles({
       name: "paper-answers.md",
       mimeType: "text/markdown",
       buffer: Buffer.from("1. A. 2(a). Zero occupies a representation."),
@@ -197,4 +197,33 @@ test("an idle second tab adopts the saved answer together with its new draft ver
     { timeout: 10000 },
   );
   await second.close();
+});
+
+test("ordinary extraction notes are separate and do not block practice", async ({
+  page,
+  request,
+}) => {
+  const m = await moduleFolder(request);
+  await uploadPaper(
+    page,
+    m.id,
+    pdf("NOTES_ONLY: missing optional marks and a preserved diagram"),
+    true,
+  );
+  await expect(page.getByText("Ready", { exact: true })).toBeVisible({
+    timeout: 30000,
+  });
+  const href = await page
+    .getByRole("link", { name: "Start practice" })
+    .getAttribute("href");
+  await page.goto(href!.replace("/practice", "/review"));
+  const notes = page.getByText("Preparation notes (2)", { exact: true });
+  await expect(notes).toBeVisible();
+  await notes.click();
+  await expect(
+    page.getByText("Marks were not printed; marks are null.", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("region", { name: "Conversion issues" }),
+  ).toHaveCount(0);
 });

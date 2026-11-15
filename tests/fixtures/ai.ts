@@ -20,6 +20,12 @@ export class FixtureAi implements AiGateway {
       });
       return schema.parse({
         questions: candidates,
+        notes: JSON.stringify(input).includes("NOTES_ONLY")
+          ? [
+              "Marks were not printed; marks are null.",
+              "The diagram is preserved as a source image.",
+            ]
+          : [],
         warnings: JSON.stringify(input).includes("FLAG_REVIEW")
           ? ["Check question 2(a) against the supplied solution."]
           : [],

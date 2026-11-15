@@ -48,8 +48,8 @@ test("module upload converts automatically then practice feedback and completion
     .getByRole("button", { name: "Upload papers", exact: true })
     .first()
     .click();
-  await page.getByLabel("Question papers").setInputFiles(pdfs);
-  await page.getByLabel("Solution files").setInputFiles(keys);
+  await page.getByLabel("Question papers", { exact: true }).setInputFiles(pdfs);
+  await page.getByLabel("Solution files", { exact: true }).setInputFiles(keys);
   await page.getByRole("button", { name: "Prepare upload" }).click();
   await page.getByRole("button", { name: "Confirm and prepare" }).click();
   await expect(page.getByText("Ready", { exact: true })).toHaveCount(10, {
