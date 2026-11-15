@@ -96,10 +96,13 @@ test.each([false, true])(
                 ? [entry("Correct original result.", [4])]
                 : solutionCalls === 2
                   ? [
-                      entry(
-                        "Adjacent subpart working wrongly copied here.",
-                        [4, 5],
-                      ),
+                      {
+                        ...entry(
+                          "Adjacent subpart working wrongly copied here.",
+                          [4, 5],
+                        ),
+                        continuation: "to_next",
+                      },
                     ]
                   : [],
             warnings: [],

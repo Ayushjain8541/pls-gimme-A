@@ -480,7 +480,10 @@ export async function ingestPaper(
         resolved?.continuation !== "complete"
       )
         warnings.push(...conflicts, ...output.warnings);
-      else entries[index] = resolved;
+      else {
+        entries[index] = resolved;
+        openSolutions.delete(number);
+      }
     }
   } else {
     const text = readFileSync(
