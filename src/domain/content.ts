@@ -11,6 +11,6 @@ export type Block = z.infer<typeof BlockSchema>;
 export const SourceSchema = z.object({
   documentId: z.string(),
   page: z.number().int().positive(),
-  bbox: z.tuple([z.number(), z.number(), z.number(), z.number()]).nullable(),
+  bbox: z.array(z.number()).length(4).nullable(),
 });
 export type SourceRef = z.infer<typeof SourceSchema>;

@@ -47,7 +47,7 @@ export const SolutionsOutput = z.object({
   ),
   warnings: z.array(z.string()),
 });
-const ExplanationsOutput = z.object({
+export const ExplanationsOutput = z.object({
   explanations: z.array(
     z.object({
       questionId: z.string(),
