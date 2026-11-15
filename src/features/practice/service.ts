@@ -1,3 +1,4 @@
+import { questionDependencies } from "../ingestion/context";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import type { AppDb } from "../../server/db/client";
@@ -284,11 +285,13 @@ export function attemptContext(db: AppDb, attemptId: string) {
   const attempt = getAttempt(db, attemptId),
     s = getSessionRow(db, attempt.sessionId),
     r = getRevision(db, s.revisionId).content;
+  const question = requireValue(
+    r.questions.find((q) => q.id === attempt.questionId),
+  );
   return {
     attempt,
-    question: requireValue(
-      r.questions.find((q) => q.id === attempt.questionId),
-    ),
+    question,
+    relatedQuestions: questionDependencies(r.questions, [question]),
     answer: requireValue(
       r.answers.find((a) => a.questionId === attempt.questionId),
     ),

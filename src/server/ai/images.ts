@@ -14,6 +14,19 @@ export function visualInputs(db: AppDb, value: unknown): AiInput {
       const object = node as Record<string, unknown>;
       if (object.kind === "asset" && typeof object.assetId === "string")
         ids.add(object.assetId);
+      if (
+        typeof object.documentId === "string" &&
+        typeof object.page === "number"
+      ) {
+        const asset = one<{ id: string }>(
+          db,
+          "SELECT a.id FROM assets a JOIN documents d ON d.id=a.documentId WHERE a.documentId=? AND a.page=? AND d.ownerId=?",
+          object.documentId,
+          object.page,
+          "local",
+        );
+        if (asset) ids.add(asset.id);
+      }
       Object.values(object).forEach(walk);
     }
   }

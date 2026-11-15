@@ -40,15 +40,19 @@ function overlap(a: SourceRef[], b: SourceRef[]) {
     b.some((y) => x.documentId === y.documentId && x.page === y.page),
   );
 }
-export function mergeQuestionFragments(first: Question, next: Question) {
+export function mergeQuestionFragments(
+  first: Question,
+  next: Question,
+  continuation = false,
+) {
   const issues: string[] = [];
   const prompt = blocks(first.prompt, next.prompt);
   const context = blocks(first.context, next.context);
-  if (context.ambiguous && overlap(first.source, next.source))
+  if (!continuation && context.ambiguous && overlap(first.source, next.source))
     issues.push(
       `Question ${first.number}: conflicting shared context on overlapping pages. Check the original.`,
     );
-  if (prompt.ambiguous && overlap(first.source, next.source))
+  if (!continuation && prompt.ambiguous && overlap(first.source, next.source))
     issues.push(
       `Question ${first.number}: conflicting text on overlapping source pages. Check the original.`,
     );
@@ -92,10 +96,11 @@ export function mergeQuestionFragments(first: Question, next: Question) {
 export function mergeSolutionFragments(
   first: SolutionEntry,
   next: SolutionEntry,
+  continuation = false,
 ) {
   const issues: string[] = [];
   const merged = blocks(first.content, next.content);
-  if (merged.ambiguous && overlap(first.source, next.source))
+  if (!continuation && merged.ambiguous && overlap(first.source, next.source))
     issues.push(
       `Solution ${first.number}: differing steps on overlapping pages. Check the complete reference.`,
     );

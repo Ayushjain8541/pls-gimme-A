@@ -92,3 +92,25 @@ test("figure evidence reaches explanation, written assessment and follow-up mode
   ]);
   db.close();
 });
+
+test("source-page references supply images even when the model omitted an explicit asset block", async () => {
+  const { db, paper } = await readyPaper();
+  const image = Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/nGsAAAAASUVORK5CYII=",
+    "base64",
+  );
+  writeFileSync(path.join(storageDir(db), "source-page.png"), image);
+  db.prepare("INSERT INTO assets VALUES(?,?,?,?,?)").run(
+    "source-page",
+    paper.questionDocumentId,
+    "question",
+    1,
+    "source-page.png",
+  );
+  const { visualInputs } = await import("../../src/server/ai/images");
+  const input = visualInputs(db, {
+    source: [{ documentId: paper.questionDocumentId, page: 1, bbox: null }],
+  });
+  expect(JSON.stringify(input)).toContain(image.toString("base64"));
+  db.close();
+});

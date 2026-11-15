@@ -46,7 +46,13 @@ export async function runNextJob(db: AppDb, ai: AiGateway): Promise<boolean> {
             409,
           );
         stage("Preparing explanations");
-        const content = await prepareExplanations(db, r.content, ai);
+        const content = await prepareExplanations(
+          db,
+          r.content,
+          ai,
+          (done, total) => stage(`Preparing explanations (${done}/${total})`),
+          payload.questionIds,
+        );
         finishJob(db, job, () => {
           const latest = getRevision(db, r.id);
           if (latest.version !== r.version)

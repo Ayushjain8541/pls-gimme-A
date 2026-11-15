@@ -35,9 +35,15 @@ import path from "node:path";
 import { mergeQuestionFragments, mergeSolutionFragments } from "./merge";
 import { visualInputs } from "../../server/ai/images";
 import { documentWindows } from "./windows";
+import { questionDependencies } from "./context";
+const ContinuationSchema = z
+  .enum(["complete", "from_previous", "to_next", "both"])
+  .default("complete");
 export const QuestionsOutput = z.object({
   questions: z.array(
-    QuestionSchema.omit({ id: true, revisionId: true, order: true }),
+    QuestionSchema.omit({ id: true, revisionId: true, order: true }).extend({
+      continuation: ContinuationSchema,
+    }),
   ),
   warnings: z.array(z.string()),
   notes: z.array(z.string()).default([]),
@@ -48,7 +54,7 @@ export const SolutionsOutput = z.object({
       questionId: true,
       origin: true,
       rubricOrigin: true,
-    }).extend({ number: z.string() }),
+    }).extend({ number: z.string(), continuation: ContinuationSchema }),
   ),
   warnings: z.array(z.string()),
   notes: z.array(z.string()).default([]),
@@ -88,6 +94,7 @@ function pageInput(
     totalPages: number;
     firstPrimaryPage: number;
     lastPrimaryPage: number;
+    openQuestionNumbers?: string[];
   },
 ): AiInput {
   const content: AiInputContent[] = [];
@@ -102,6 +109,7 @@ function pageInput(
         completeDocument: scope.completeDocument,
         documentPageCount: scope.totalPages,
         primaryPageRange: [scope.firstPrimaryPage, scope.lastPrimaryPage],
+        openQuestionNumbers: scope.openQuestionNumbers || [],
       }),
     });
     content.push({
@@ -117,13 +125,25 @@ export async function prepareExplanations(
   content: ParsedRevision,
   ai: AiGateway,
   progress?: (done: number, total: number) => void,
+  onlyQuestionIds?: string[],
 ) {
-  const explanations: ParsedRevision["explanations"] = [];
-  const supported = content.questions.filter((q) => q.kind !== "unsupported");
+  const targets = onlyQuestionIds ? new Set(onlyQuestionIds) : null;
+  const explanations: ParsedRevision["explanations"] = targets
+    ? content.explanations.filter((e) => !targets.has(e.questionId))
+    : [];
+  const supported = content.questions.filter(
+    (q) => q.kind !== "unsupported" && (!targets || targets.has(q.id)),
+  );
   for (let i = 0; i < supported.length; i += 4) {
     progress?.(i, supported.length);
     const qs = supported.slice(i, i + 4),
       ids = new Set(qs.map((q) => q.id));
+    const relatedQuestions = questionDependencies(content.questions, qs);
+    const input = {
+      questions: qs,
+      relatedQuestions,
+      answers: content.answers.filter((a) => ids.has(a.questionId)),
+    };
     const output = await ai.structured(
       ExplanationsOutput,
       "prepared_explanations",
@@ -131,15 +151,9 @@ export async function prepareExplanations(
       [
         {
           role: "user",
-          content: JSON.stringify({
-            questions: qs,
-            answers: content.answers.filter((a) => ids.has(a.questionId)),
-          }),
+          content: JSON.stringify(input),
         },
-        ...visualInputs(db, {
-          questions: qs,
-          answers: content.answers.filter((a) => ids.has(a.questionId)),
-        }),
+        ...visualInputs(db, input),
       ],
       "INGEST",
     );
@@ -245,6 +259,7 @@ export async function ingestPaper(
   const questions: Question[] = [],
     warnings: string[] = [],
     notes: string[] = [];
+  const openQuestions = new Set<string>();
   for (const window of documentWindows(questionDoc.pages)) {
     const pages = window.pages;
     stage(
@@ -256,7 +271,10 @@ export async function ingestPaper(
       QuestionsOutput,
       "paper_questions",
       PARSE_QUESTIONS,
-      pageInput(questionDoc.documentId, pages, window),
+      pageInput(questionDoc.documentId, pages, {
+        ...window,
+        openQuestionNumbers: [...openQuestions],
+      }),
       "INGEST",
     );
     warnings.push(...output.warnings);
@@ -269,6 +287,8 @@ export async function ingestPaper(
       // A complete repeated item from context pages belongs to its earlier window.
       if (
         !window.completeDocument &&
+        !openQuestions.has(q.number) &&
+        q.continuation === "complete" &&
         q.source.length &&
         q.source.every(
           (source) =>
@@ -277,6 +297,12 @@ export async function ingestPaper(
         )
       )
         continue;
+      const continuing =
+        openQuestions.has(q.number) &&
+        (q.continuation === "from_previous" || q.continuation === "both");
+      if (q.continuation === "to_next" || q.continuation === "both")
+        openQuestions.add(q.number);
+      else openQuestions.delete(q.number);
       const index = questions.findIndex((x) => x.number === q.number);
       const candidate: Question = {
         ...q,
@@ -285,7 +311,11 @@ export async function ingestPaper(
         order: index >= 0 ? questions[index].order : questions.length,
       };
       if (index >= 0) {
-        const merged = mergeQuestionFragments(questions[index], candidate);
+        const merged = mergeQuestionFragments(
+          questions[index],
+          candidate,
+          continuing,
+        );
         questions[index] = merged.question;
         warnings.push(...merged.issues);
       } else questions.push(candidate);
@@ -296,9 +326,14 @@ export async function ingestPaper(
       "empty_conversion",
       "No questions could be extracted. Check the source PDF.",
     );
+  for (const number of openQuestions)
+    warnings.push(
+      `Question ${number}: continuation was not completed. Check the remaining source pages.`,
+    );
   stage("Matching reference solutions");
   const solution = getDocument(db, p.solutionDocumentId);
   const entries: SolutionEntry[] = [];
+  const openSolutions = new Set<string>();
   const solutionSchema = solutionOutputFor(questions);
   const expectedQuestions = {
     expectedQuestionNumbers: questions.map((q) => q.number),
@@ -325,7 +360,10 @@ export async function ingestPaper(
         PARSE_SOLUTIONS,
         [
           { role: "user", content: JSON.stringify(expectedQuestions) },
-          ...pageInput(doc.documentId, window.pages, window),
+          ...pageInput(doc.documentId, window.pages, {
+            ...window,
+            openQuestionNumbers: [...openSolutions],
+          }),
         ],
         "INGEST",
       );
@@ -338,6 +376,8 @@ export async function ingestPaper(
         };
         if (
           !window.completeDocument &&
+          !openSolutions.has(entry.number) &&
+          entry.continuation === "complete" &&
           entry.source.length &&
           entry.source.every(
             (source) =>
@@ -346,10 +386,21 @@ export async function ingestPaper(
           )
         )
           continue;
+        const continuing =
+          openSolutions.has(entry.number) &&
+          (entry.continuation === "from_previous" ||
+            entry.continuation === "both");
+        if (entry.continuation === "to_next" || entry.continuation === "both")
+          openSolutions.add(entry.number);
+        else openSolutions.delete(entry.number);
         const index = entries.findIndex((e) => e.number === entry.number);
         if (index < 0) entries.push(entry);
         else {
-          const merged = mergeSolutionFragments(entries[index], entry);
+          const merged = mergeSolutionFragments(
+            entries[index],
+            entry,
+            continuing,
+          );
           entries[index] = merged.entry;
           warnings.push(...merged.issues);
         }
@@ -374,6 +425,10 @@ export async function ingestPaper(
     warnings.push(...output.warnings);
     notes.push(...output.notes);
   }
+  for (const number of openSolutions)
+    warnings.push(
+      `Solution ${number}: continuation was not completed. Check the remaining source pages.`,
+    );
   const aligned = alignAnswers(questions, entries, p.solutionOrigin!);
   let content: ParsedRevision = {
     questions,
@@ -390,7 +445,9 @@ export async function ingestPaper(
       stage(`Preparing explanations (${done}/${total})`),
     );
   }
-  const final = validateRevision(content, true);
+  const final = valid.ok ? validateRevision(content, true) : valid;
+  if (!final.ok)
+    content.issues = [...new Set([...content.issues, ...final.issues])];
   commit(() => {
     const revision = saveRevision(db, p.id, content);
     if (final.ok) publishRevision(db, p.id, revision.id, revision.version);
