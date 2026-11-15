@@ -16,3 +16,4 @@ test('wrong MCQ explains the selected distractor and external keys stay provisio
  const feedback=gradeMcq(r.questions[0],{kind:'selection',optionIds:['B']},answer,r.explanations[0]);
  expect(feedback.verdict).toBe('incorrect'); expect(feedback.provisional).toBe(true); expect(JSON.stringify(feedback.worked)).toContain('signed');
 });
+test('blank reference content cannot become a usable answer key',()=>{const r=fixtureRevision();r.answers[0].content=[{kind:'markdown',text:'   '}];expect(validateRevision(r).ok).toBe(false);});
