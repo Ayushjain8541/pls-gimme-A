@@ -1,7 +1,7 @@
 # Exam practice MVP design
 
 Date: 2026-11-15 (Asia/Singapore)
-Status: Approved by the user on 2026-11-15; implementation planning authorized, implementation not started.
+Status: Approved and implemented on 2026-11-15. See ../../implementation-notes.md for verification, review fixes, and live-validation limits.
 
 ## Intent and success
 
@@ -154,4 +154,4 @@ The builder chooses exact schema names, API boundaries, components, parsing/mode
 
 Particular assistant proposals to review: personal-use local delivery first; PDF-first document support with text/Markdown solutions; no feedback practice until solutions are attached; a compact follow-up chat in the first usable loop; and the explicit exclusion/completion rules.
 
-User approval received. Next create the detailed implementation plan before product code or scaffolding.
+User approval received; the implementation plan has been executed inline. The implementation notes record decisions, independent review findings and verification.

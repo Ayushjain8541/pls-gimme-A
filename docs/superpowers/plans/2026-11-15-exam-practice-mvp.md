@@ -25,7 +25,7 @@
 - Background preparation is schema conversion and required consistency checking, not a mandatory human review or a guarantee of academic correctness. Automatically activate successful conversions after explanations are prepared; route detected conversion problems to repair. The typical workflow is module → batch upload → background preparation → paper → answer/feedback → saved progress/completion.
 - Implement within this workspace; local persistence only, no Docker, Redis, public deployment, account signup, automatic module sorting, or in-app solution generation.
 - All HTTP handlers use the Node runtime. Bind web app to `127.0.0.1`; validate local Host/Origin on mutations. This is a single-user local app, not suitable for network exposure without authentication work.
-- No implementation or dependency installation is authorized by this planning turn; execution follows plan review.
+- Implementation was authorized after plan review; the user selected inline execution and subsequently requested small commits pushed in batches.
 
 ## Review Focus
 
@@ -305,3 +305,7 @@ await expect(page.getByTestId('feedback-explanation')).toContainText(wrongOption
 Self-review maps the spec to Tasks 1–12: module folders/progress (1,10), upload and provenance (3,10,11), structured ingestion and source fidelity (2,5,6), feedback and persistence (7,8), follow-up (9), revisions/recovery (2,4,6–8), real-document quality (12). Review Focus cases have explicit owning tests. No code, scaffold, dependencies, runtime credentials, or real AI validation have been produced by this plan.
 
 Recommended execution is native in this session because the tasks share a small set of contracts and the first meaningful milestone is an integrated paper workflow. The alternative is subagent-driven task execution with an independent review per task, at greater context cost. Ask the user to review the plan and select the execution approach before implementation.
+
+## Execution result — 2026-11-15
+
+Implemented inline on `codex/exam-practice-mvp`. All task deliverables are represented in the app, with consolidated test locations and repository/interface decisions recorded in [implementation notes](../../implementation-notes.md). Verification: 29 unit/integration tests and 6 browser workflows passed, along with lint, type checking and production build. Four Important independent-review findings were fixed with regressions. Live course-paper/model quality remains unverified pending real files and API configuration. Original step checkboxes above preserve the planning text rather than retrospectively claiming every proposed command was executed verbatim.
