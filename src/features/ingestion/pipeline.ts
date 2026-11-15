@@ -359,6 +359,7 @@ export async function ingestPaper(
   const solution = getDocument(db, p.solutionDocumentId);
   const entries: SolutionEntry[] = [];
   const openSolutions = new Set<string>();
+  const solutionConflicts = new Map<string, string[]>();
   const solutionSchema = solutionOutputFor(questions);
   const expectedQuestions = {
     expectedQuestionNumbers: questions.map((q) => q.number),
@@ -427,9 +428,59 @@ export async function ingestPaper(
             continuing,
           );
           entries[index] = merged.entry;
-          warnings.push(...merged.issues);
+          if (merged.issues.length)
+            solutionConflicts.set(entry.number, [
+              ...new Set([
+                ...(solutionConflicts.get(entry.number) || []),
+                ...merged.issues,
+              ]),
+            ]);
         }
       }
+    }
+    // Re-read only disputed leaves with all of their original source pages together.
+    // Never suppress a conflict just because the extracted answers look similar.
+    for (const [number, conflicts] of solutionConflicts) {
+      const index = entries.findIndex((e) => e.number === number);
+      const target = questions.find((q) => q.number === number)!;
+      const sourcePages = new Set(entries[index].source.map((ref) => ref.page));
+      const pages = doc.pages.filter((page) => sourcePages.has(page.page));
+      if (!pages.length || documentWindows(pages).length !== 1) {
+        warnings.push(...conflicts);
+        continue;
+      }
+      stage(`Checking solution ${number} against original pages`);
+      const output = await ai.structured(
+        solutionOutputFor([target]),
+        "reconcile_solutions",
+        `${PARSE_SOLUTIONS} This is a focused re-extraction after overlapping passes disagreed. Read the supplied ORIGINAL source pages afresh, including summary keys and worked solutions. Extract ONLY the requested leaf subpart. Assign working to its exact subpart label; never attach an adjacent subpart's derivation. Related questions are context only. Return one complete entry if the originals resolve the ambiguity. If the originals genuinely conflict or are unreadable, return a warning instead of guessing.`,
+        [
+          {
+            role: "user",
+            content: JSON.stringify({
+              expectedQuestionNumbers: [number],
+              questions: [target],
+              relatedQuestions: questionDependencies(questions, [target]),
+            }),
+          },
+          ...pageInput(doc.documentId, pages, {
+            completeDocument: false,
+            totalPages: doc.pages.length,
+            firstPrimaryPage: pages[0].page,
+            lastPrimaryPage: pages.at(-1)!.page,
+          }),
+        ],
+        "INGEST",
+      );
+      notes.push(...output.notes);
+      const resolved = output.entries[0];
+      if (
+        output.warnings.length ||
+        output.entries.length !== 1 ||
+        resolved?.continuation !== "complete"
+      )
+        warnings.push(...conflicts, ...output.warnings);
+      else entries[index] = resolved;
     }
   } else {
     const text = readFileSync(
