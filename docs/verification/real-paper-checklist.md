@@ -1,6 +1,6 @@
 # Real-paper verification
 
-No course paper or official key was supplied for live validation during implementation. Synthetic extraction and provider-isolated workflow tests cannot establish real-paper fidelity.
+Live conversion of the first course question/key pair completed on 2026-11-15. Synthetic extraction and provider-isolated workflow tests alone cannot establish real-paper fidelity.
 
 With a representative question paper, its reference key, and configured model credentials:
 
@@ -16,4 +16,4 @@ With a representative question paper, its reference key, and configured model cr
 
 ## Observations
 
-Live document/model quality: not yet verified. Add dated results after running the above checks with actual course materials.
+2026-11-15: Reprocessed the existing 15-page question / 11-page official solution upload. Published Ready with 43 leaf items, 41 matched supported answers and prepared explanations, two excluded drawing responses, zero blocking issues and nine preparation notes. Six explanation requests were repaired with original source images and related question context; all explanation statuses are ready. Originals and existing sessions were preserved. No live student attempts were submitted. Full human comparison of transcription, answer mappings and reasoning, and live grading accuracy remain outstanding.

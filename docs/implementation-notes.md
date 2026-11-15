@@ -39,7 +39,7 @@ These are the executor's decisions, in order, rather than additional user requir
 
 The review set aside three areas, and the executor retained those boundaries:
 
-- Live extraction and grading quality on actual course papers is unverified because no representative course paper/key or API configuration was supplied. The cost is that real-paper formatting and model-quality defects can still surface. Use the real-paper checklist before relying on assessment quality.
+- A real uploaded question/key pair has now completed live conversion; see the dated update below. Question-by-question transcription fidelity and live grading quality still need human comparison against the originals.
 - A local owner can deliberately open answer-visible repair routes. The app prevents accidental answer disclosure in practice, rather than trying to prevent its owner from inspecting their own files.
 - Public multi-user deployment and automatic generation of missing reference solutions remain deferred as designed. This build is a personal local app and requires supplied official or externally generated reference solutions.
 
@@ -50,6 +50,18 @@ Before using AI, set `ANTHROPIC_API_KEY` in the ignored `.env.local`, then resta
 
 The user requested Anthropic credentials and Haiku after the initial MVP implementation. New model operations now use `@anthropic-ai/sdk`, Claude Messages structured outputs, and `claude-haiku-5-5` by default. Internal input contracts no longer depend on OpenAI types. Model/figure routing, local validation, timeouts, saved work, and optional per-task model overrides are retained. Conversion cache keys explicitly include the Anthropic provider. API credentials are read server-side only; existing local environment values are preserved when adding the new settings.
 
-Focused independent review found no Critical or Important issues. One deferred minor: the SDK can wrap a non-JSON prose refusal as a parse error before returning the stop reason; that case may receive the worker's bounded transient retries instead of the dedicated refusal message. Invalid output never becomes an assessment. Live Claude grading quality remains unverified without a configured key and real paper.
+Focused independent review found no Critical or Important issues. One deferred minor: the SDK can wrap a non-JSON prose refusal as a parse error before returning the stop reason; that case may receive the worker's bounded transient retries instead of the dedicated refusal message. Invalid output never becomes an assessment. Live Claude grading quality remains unaudited; the dated update below records live conversion results.
 
 Official references checked on 2026-11-15: [Haiku 5.5 model](https://platform.claude.com/docs/en/models/haiku-5-5/overview), [structured outputs](https://platform.claude.com/docs/en/build-with-claude/structured-outputs).
+
+## Upload selection and first live-paper repair — 2026-11-15
+
+Repeated file selection and drag/drop now append accepted files with visible filenames, safe previews, deduplication, removal and shared size/count limits. Browser regressions cover the original replacement bug and actual accumulated uploads.
+
+The first course upload exposed pipeline defects: chunk-local observations were presented as global failures, paraphrased overlaps looked like conflicts, and answer extraction could return parent numbers instead of exact leaf subparts. Whole-document conversion is now used within bounded page/image budgets; larger documents carry explicit continuation state. Unfinished continuations remain blockers. Informational notes are separate from actionable issues. Stored originals can be converted again without reuploading or changing prior sessions.
+
+Explanation, assessment and follow-up requests now include original referenced page images and related question context, including earlier code and sibling setup. Official MCQ correctness still follows the supplied key. Complete but cautious AI explanations carry a post-submission notice; structural extraction and answer-key checks remain strict.
+
+The existing 15-page question PDF and 11-page solution PDF were reprocessed with Claude: 43 leaf questions/subparts, 41 supported reference answers and 41 prepared explanations, two drawing responses excluded, zero blocking issues, nine collapsed preparation notes. The paper published as Ready; all 41 explanation statuses are ready after six targeted context repairs. Originals were preserved and the local database was backed up. No production attempts were submitted. This establishes successful live conversion, not independently verified transcription or reasoning accuracy.
+
+Fresh verification: lint, TypeScript, 49 tests across 22 files, 10 browser workflows and production build passed. Build retains three existing dynamic-filesystem tracing warnings. The restarted local app returned HTTP 200 with no browser page errors. Private source files, database backups and credentials remain ignored.
