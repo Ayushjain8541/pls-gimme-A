@@ -120,6 +120,31 @@ function pageInput(
   }
   return [{ role: "user", content }];
 }
+function explanationOutputFor(questions: Question[]) {
+  const ids = questions.map((q) => q.id) as [string, ...string[]];
+  return ExplanationsOutput.extend({
+    explanations: z
+      .array(
+        ExplanationsOutput.shape.explanations.element.extend({
+          questionId: z
+            .enum(ids)
+            .describe(
+              "Only target question IDs; relatedQuestions are context, not output targets.",
+            ),
+        }),
+      )
+      .length(ids.length),
+  }).superRefine((value, ctx) => {
+    if (
+      new Set(value.explanations.map((e) => e.questionId)).size !== ids.length
+    )
+      ctx.addIssue({
+        code: "custom",
+        path: ["explanations"],
+        message: "Return exactly one explanation per target question.",
+      });
+  });
+}
 export async function prepareExplanations(
   db: AppDb,
   content: ParsedRevision,
@@ -145,7 +170,7 @@ export async function prepareExplanations(
       answers: content.answers.filter((a) => ids.has(a.questionId)),
     };
     const output = await ai.structured(
-      ExplanationsOutput,
+      explanationOutputFor(qs),
       "prepared_explanations",
       EXPLAIN,
       [

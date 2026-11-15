@@ -37,7 +37,12 @@ export class CachedIngestionGateway implements AiGateway {
       "SELECT contentJson FROM aiArtifacts WHERE cacheKey=?",
       key,
     );
-    if (cached) return schema.parse(JSON.parse(cached.contentJson));
+    if (cached) {
+      const parsed = schema.safeParse(JSON.parse(cached.contentJson));
+      if (parsed.success) return parsed.data;
+      // A stricter output contract must not keep replaying a previously accepted bad result.
+      this.db.prepare("DELETE FROM aiArtifacts WHERE cacheKey=?").run(key);
+    }
     const output = schema.parse(
       await this.delegate.structured(schema, name, instructions, input, task),
     );

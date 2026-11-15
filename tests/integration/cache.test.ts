@@ -41,3 +41,56 @@ test("successful conversion stages survive a later provider failure and model ch
   ).rejects.toThrow("provider unavailable");
   db.close();
 });
+
+test("a cached result rejected by a tighter contract is replaced instead of poisoning every retry", async () => {
+  const { db } = await readyPaper();
+  const old = z.object({ ids: z.array(z.string()) });
+  const ai = new CachedIngestionGateway(
+    db,
+    {
+      async structured<T>(schema: z.ZodType<T>) {
+        return schema.parse({ ids: ["wrong"] });
+      },
+    },
+    "model-a",
+  );
+  await ai.structured(old, "explanations", "same prompt", [], "INGEST");
+  const strict = z.object({ ids: z.array(z.literal("q1")).length(1) });
+  const repaired = new CachedIngestionGateway(
+    db,
+    {
+      async structured<T>(schema: z.ZodType<T>) {
+        return schema.parse({ ids: ["q1"] });
+      },
+    },
+    "model-a",
+  );
+  expect(
+    await repaired.structured(
+      strict,
+      "explanations",
+      "same prompt",
+      [],
+      "INGEST",
+    ),
+  ).toEqual({ ids: ["q1"] });
+  const cached = new CachedIngestionGateway(
+    db,
+    {
+      async structured<T>(): Promise<T> {
+        throw new Error("must use repaired cache");
+      },
+    },
+    "model-a",
+  );
+  expect(
+    await cached.structured(
+      strict,
+      "explanations",
+      "same prompt",
+      [],
+      "INGEST",
+    ),
+  ).toEqual({ ids: ["q1"] });
+  db.close();
+});
