@@ -64,7 +64,9 @@ export function assertLease(db: AppDb, job: Job) {
   if (
     !current ||
     current.status !== "running" ||
-    current.leaseToken !== job.leaseToken
+    current.leaseToken !== job.leaseToken ||
+    current.leaseUntil === null ||
+    current.leaseUntil <= Date.now()
   )
     throw new AppError(
       "stale_job",
@@ -124,9 +126,9 @@ export function failJob(db: AppDb, job: Job, error: unknown) {
     const p = JSON.parse(job.payload);
     if (!again) {
       if (job.kind === "ingest")
-        db.prepare("UPDATE papers SET state='failed' WHERE id=?").run(
-          p.paperId,
-        );
+        db.prepare(
+          "UPDATE papers SET state=CASE WHEN activeRevisionId IS NULL THEN 'failed' ELSE 'ready' END WHERE id=?",
+        ).run(p.paperId);
       if (job.kind === "evaluate")
         db.prepare("UPDATE attempts SET status='failed' WHERE id=?").run(
           p.attemptId,

@@ -29,8 +29,8 @@ export async function runNextJob(db: AppDb, ai: AiGateway): Promise<boolean> {
   if (!job) return false;
   const timer = setInterval(() => {
     db.prepare(
-      "UPDATE jobs SET leaseUntil=? WHERE id=? AND leaseToken=? AND status=?",
-    ).run(Date.now() + 90000, job.id, job.leaseToken, "running");
+      "UPDATE jobs SET leaseUntil=? WHERE id=? AND leaseToken=? AND status=? AND leaseUntil>?",
+    ).run(Date.now() + 90000, job.id, job.leaseToken, "running", Date.now());
   }, 20000);
   try {
     const payload = JSON.parse(job.payload);

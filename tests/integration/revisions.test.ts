@@ -28,3 +28,22 @@ test("published content is immutable and stale version updates are rejected", as
   expect(() => publishRevision(db, paper.id, next.id, 999)).toThrow();
   db.close();
 });
+
+test("a failed repair does not make the published paper unavailable", async () => {
+  const { db, paper, revision } = await readyPaper();
+  db.prepare("DELETE FROM jobs").run();
+  const { enqueueJob, claimJob, failJob } =
+    await import("../../src/features/jobs/service");
+  const { AppError } = await import("../../src/server/errors");
+  const { getPaper } = await import("../../src/features/documents/service");
+  enqueueJob(db, "ingest", "repair", {
+    paperId: paper.id,
+    draftId: revision.id,
+    expectedVersion: 0,
+  });
+  const job = claimJob(db)!;
+  failJob(db, job, new AppError("version_conflict", "The draft changed.", 409));
+  expect(getPaper(db, paper.id).state).toBe("ready");
+  expect(getPaper(db, paper.id).activeRevisionId).toBe(revision.id);
+  db.close();
+});
