@@ -65,3 +65,21 @@ test("rejects disguised PDFs and prevents solution files through question source
   );
   db.close();
 });
+
+test("oversized text is rejected without leaving a document row", async () => {
+  const { db, module } = setup();
+  const bytes = new Uint8Array(1024 * 1024 + 1).fill(65);
+  await expect(
+    saveDocument(db, module.id, {
+      name: "large.md",
+      mime: "text/markdown",
+      role: "solution",
+      stream: new Blob([bytes]).stream(),
+    }),
+  ).rejects.toThrow();
+  expect(
+    (db.prepare("SELECT count(*) AS n FROM documents").get() as { n: number })
+      .n,
+  ).toBe(0);
+  db.close();
+});

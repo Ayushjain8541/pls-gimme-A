@@ -34,3 +34,53 @@ test("batch pairs by name, needs confirmation, and confirmation is idempotent", 
   expect(second).toEqual(first);
   db.close();
 });
+
+test("ambiguous filenames remain unpaired and a failed pair rolls back the entire confirmation", async () => {
+  const { db, module } = await readyPaper();
+  const docs: Awaited<ReturnType<typeof saveDocument>>[] = [];
+  for (const [name, role, content] of [
+    ["exam.pdf", "question", "q"],
+    ["exam-answers.pdf", "solution", "a1"],
+    ["exam-solutions.pdf", "solution", "a2"],
+  ] as const)
+    docs.push(
+      await saveDocument(db, module.id, {
+        name,
+        role,
+        mime: "application/pdf",
+        stream: new Blob([`%PDF-1.4 ${content}`]).stream(),
+      }),
+    );
+  const proposed = suggestPairs(
+    db,
+    module.id,
+    docs.map((d) => d.id),
+  );
+  expect(proposed[0].solutionDocumentId).toBeNull();
+  const before = (
+    db.prepare("SELECT count(*) AS n FROM papers").get() as { n: number }
+  ).n;
+  expect(() =>
+    confirmBatch(db, module.id, {
+      requestId: "bad",
+      pairs: [
+        {
+          title: "valid",
+          questionDocumentId: docs[0].id,
+          solutionDocumentId: null,
+          solutionOrigin: null,
+        },
+        {
+          title: "bad",
+          questionDocumentId: "not-a-document",
+          solutionDocumentId: null,
+          solutionOrigin: null,
+        },
+      ],
+    }),
+  ).toThrow();
+  expect(
+    (db.prepare("SELECT count(*) AS n FROM papers").get() as { n: number }).n,
+  ).toBe(before);
+  db.close();
+});
