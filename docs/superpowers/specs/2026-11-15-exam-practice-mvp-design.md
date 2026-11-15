@@ -24,6 +24,7 @@ Confirmed by the user:
 - No browser mockups are wanted during this design discussion.
 - Uploads happen inside a module folder selected by the student (for example CS2100 or CS2103); automatic module sorting is not required.
 - Each module lists its papers with not-started, in-progress, and completed states and question-level progress.
+- Background preparation means converting uploaded papers and solutions into the fixed schema the website renders. The normal workflow has no mandatory manual content review: successfully prepared papers become ready automatically, with repair available for conversion problems.
 
 The remaining choices below originated as assistant proposals and were included in the approved design.
 
@@ -77,8 +78,10 @@ Use this existing Git workspace for design artifacts and implementation. At init
 3. If solutions are absent, retain the question paper with a `needs_solutions` state and offer a copyable external-generation prompt. Feedback practice becomes available when solutions are supplied and aligned. Practice without reference solutions is deferred.
 4. Process questions and solutions into schema-validated data. Preserve the original files and page references, including question figures as image assets when needed.
 5. Align solutions by question/subpart identifiers and content. Flag missing answers, ambiguous matches, unreadable content, or unsupported questions. Schema validity alone does not establish fidelity.
-6. Show extracted content with source-page access. Allow correction of question content and answer mappings. A student can confirm, repair, or exclude a flagged item; an unresolved grade-affecting issue cannot silently enter graded practice.
+6. Check conversion output for usable structure, valid option/answer references, resolved assets, and detected missing or ambiguous content. These are conversion consistency checks, not a separate promise to verify academic correctness. Show repair/source access when conversion fails or needs attention; allow correction, confirmation, or exclusion of flagged items. Do not require a manual review of every paper.
 7. Prepare concise worked explanations and, for MCQs, explanations for incorrect options. Store these separately from the supplied solution.
+
+After conversion, required consistency checks, and explanation preparation succeed, activate the paper automatically. Example normal flow: open CS2100, upload 10 papers and their available solutions, wait for background preparation, open the 2526 paper, answer one question at a time without seeing its answer first, read feedback after submitting, and return to see saved progress or completed status. Optional follow-up and repair tools do not interrupt this loop. Papers lacking solutions retain the previously agreed attach-solutions workflow; the app does not generate reference solutions internally.
 
 Prefer text extraction where usable, with page-image/vision processing for scans and difficult layouts. Mixed and scanned PDFs should receive an attempted extraction or a clear review/failure state, never an empty success. Preserve source context for any figure or equation that cannot be reliably transcribed.
 
@@ -98,7 +101,7 @@ Default to original paper order. A practice item is an answerable leaf subpart, 
 
 ## Feedback and follow-up questions
 
-MCQs are graded by matching option IDs or option sets against the reviewed reference key. Multi-select uses an exact set match initially; partial marking is deferred. Precomputed option feedback explains why the option is invalid and the relevant distinction, without claiming this was the student's actual thought process.
+MCQs are graded by matching option IDs or option sets against the converted reference key, manually corrected when needed. Multi-select uses an exact set match initially; partial marking is deferred. Precomputed option feedback explains why the option is invalid and the relevant distinction, without claiming this was the student's actual thought process.
 
 Written evaluation uses the question, submitted response, reference solution, and any supplied rubric. Return a provisional correct/partly correct/incorrect assessment, what was correct, what was missing or wrong, and a worked explanation. If evidence is insufficient, return “unable to assess” with the reference answer rather than fabricate a verdict. Show a provisional numeric score only when marks and a usable rubric support one; enforce score bounds in application code. A proposed AI rubric is labeled as generated.
 
