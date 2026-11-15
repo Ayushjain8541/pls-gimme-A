@@ -1,0 +1,1 @@
+import {ModuleDetail} from '@/features/library/module-detail';export default async function Page({params}:{params:Promise<{moduleId:string}>}){const {moduleId}=await params;return <ModuleDetail moduleId={moduleId}/>;}
