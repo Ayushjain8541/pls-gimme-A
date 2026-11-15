@@ -12,3 +12,4 @@ CREATE TABLE IF NOT EXISTS extractionCache(documentId TEXT PRIMARY KEY REFERENCE
 CREATE INDEX IF NOT EXISTS jobs_ready ON jobs(status,availableAt,leaseUntil);
 CREATE INDEX IF NOT EXISTS papers_module ON papers(moduleId);
 CREATE INDEX IF NOT EXISTS attempts_session ON attempts(sessionId,questionId,createdAt);
+CREATE TABLE IF NOT EXISTS aiArtifacts(cacheKey TEXT PRIMARY KEY,task TEXT NOT NULL,name TEXT NOT NULL,model TEXT NOT NULL,contentJson TEXT NOT NULL,createdAt TEXT NOT NULL);
