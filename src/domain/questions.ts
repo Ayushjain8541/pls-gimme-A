@@ -42,6 +42,7 @@ export const RevisionSchema = z.object({
   answers: z.array(AnswerSchema),
   explanations: z.array(ExplanationSchema),
   issues: z.array(z.string()),
+  notes: z.array(z.string()).optional(),
 });
 export type Question = z.infer<typeof QuestionSchema>;
 export type ReferenceAnswer = z.infer<typeof AnswerSchema>;

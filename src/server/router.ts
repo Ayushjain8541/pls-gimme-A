@@ -43,6 +43,7 @@ import {
   getMessages,
   flagDisputed,
 } from "../features/followup/service";
+import { reprocessPaper } from "../features/ingestion/reprocess";
 const json = (data: unknown, status = 200) =>
   Response.json(data, { status, headers: { "Cache-Control": "no-store" } });
 export async function handleRequest(
@@ -110,6 +111,8 @@ export async function handleRequest(
             id,
           ),
         });
+      if (p[2] === "reprocess" && method === "POST")
+        return json(reprocessPaper(db, id), 202);
       if (p[2] === "solutions" && method === "POST")
         return json(
           attachSolution(

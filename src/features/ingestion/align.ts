@@ -3,6 +3,15 @@ export type SolutionEntry = Omit<
   ReferenceAnswer,
   "questionId" | "origin" | "rubricOrigin"
 > & { number: string };
+export function canonicalQuestionNumber(number: string) {
+  return number
+    .normalize("NFKC")
+    .trim()
+    .replace(/^(?:question|q)\s*[.:]?\s*(?=\d)/i, "")
+    .replace(/\s+/g, "")
+    .replace(/[.:]$/, "")
+    .toLowerCase();
+}
 export function alignAnswers(
   questions: Question[],
   entries: SolutionEntry[],
@@ -12,7 +21,10 @@ export function alignAnswers(
     issues: string[] = [];
   for (const q of questions) {
     if (q.kind === "unsupported") continue;
-    const matched = entries.filter((e) => e.number.trim() === q.number.trim());
+    const matched = entries.filter(
+      (e) =>
+        canonicalQuestionNumber(e.number) === canonicalQuestionNumber(q.number),
+    );
     if (matched.length !== 1) {
       issues.push(`Question ${q.number}: missing or ambiguous solution`);
       continue;

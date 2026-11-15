@@ -47,3 +47,17 @@ test("a failed repair does not make the published paper unavailable", async () =
   expect(getPaper(db, paper.id).activeRevisionId).toBe(revision.id);
   db.close();
 });
+
+test("reprocessing an existing upload queues one job without replacing saved revisions", async () => {
+  const { db, paper, revision } = await readyPaper();
+  db.prepare("DELETE FROM jobs").run();
+  const { reprocessPaper } =
+    await import("../../src/features/ingestion/reprocess");
+  const first = reprocessPaper(db, paper.id);
+  expect(reprocessPaper(db, paper.id).jobId).toBe(first.jobId);
+  expect(getRevision(db, revision.id).status).toBe("published");
+  expect(
+    (db.prepare("SELECT count(*) AS n FROM papers").get() as { n: number }).n,
+  ).toBe(1);
+  db.close();
+});

@@ -16,7 +16,7 @@ import { runNextJob } from "../../src/worker/runner";
 import { fixtureRevision } from "../fixtures/paper";
 import { FixtureAi } from "../fixtures/ai";
 import type { AiGateway } from "../../src/server/ai/gateway";
-test("five-page conversion retains page-five question figures and completed reference steps", async () => {
+test("large-paper conversion retains page-five question figures and completed reference steps", async () => {
   const dir = mkdtempSync(`${tmpdir()}/chunk-paper-`),
     db = openDb(dir + "/db"),
     mod = createModule(db, { code: "CS2100", title: "Chunk test" });
@@ -25,7 +25,7 @@ test("five-page conversion retains page-five question figures and completed refe
     const file = dir + `/${role}.pdf`;
     execFileSync(".venv/bin/python", [
       "-c",
-      "import pymupdf,sys;d=pymupdf.open();[(lambda p:p.insert_text((72,72),'Source page '+str(i)))(d.new_page()) for i in range(5)];d.save(sys.argv[1])",
+      "import pymupdf,sys;d=pymupdf.open();[(lambda p:p.insert_text((72,72),'Source page '+str(i)))(d.new_page()) for i in range(21)];d.save(sys.argv[1])",
       file,
     ]);
     docs.push(
@@ -38,7 +38,7 @@ test("five-page conversion retains page-five question figures and completed refe
     );
   }
   const paper = createPaper(db, mod.id, {
-    title: "Five-page paper",
+    title: "Large paper",
     questionDocumentId: docs[0].id,
     solutionDocumentId: docs[1].id,
     solutionOrigin: "official",
@@ -55,7 +55,9 @@ test("five-page conversion retains page-five question figures and completed refe
       task: "INGEST" | "FEEDBACK" | "CHAT",
     ) {
       if (name === "paper_questions" || name === "paper_solutions") {
-        const message = JSON.parse(JSON.stringify(input[0])) as {
+        const message = JSON.parse(
+          JSON.stringify(input.find((item) => Array.isArray(item.content))),
+        ) as {
           content: { type: string; text?: string }[];
         };
         const pages = message.content
@@ -76,6 +78,8 @@ test("five-page conversion retains page-five question figures and completed refe
           void id;
           void revisionId;
           void order;
+          if (questionRound > 2)
+            return schema.parse({ questions: [], warnings: [] });
           const later = questionRound === 2;
           return schema.parse({
             questions: [

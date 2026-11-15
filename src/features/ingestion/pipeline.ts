@@ -19,7 +19,11 @@ import {
 } from "../../server/ai/prompts";
 import { getPaper, getDocument, storageDir } from "../documents/service";
 import { extractPdf, type ExtractedPage } from "./pdf";
-import { alignAnswers, type SolutionEntry } from "./align";
+import {
+  alignAnswers,
+  canonicalQuestionNumber,
+  type SolutionEntry,
+} from "./align";
 import {
   saveRevision,
   publishRevision,
@@ -30,11 +34,13 @@ import { AppError } from "../../server/errors";
 import path from "node:path";
 import { mergeQuestionFragments, mergeSolutionFragments } from "./merge";
 import { visualInputs } from "../../server/ai/images";
+import { documentWindows } from "./windows";
 export const QuestionsOutput = z.object({
   questions: z.array(
     QuestionSchema.omit({ id: true, revisionId: true, order: true }),
   ),
   warnings: z.array(z.string()),
+  notes: z.array(z.string()).default([]),
 });
 export const SolutionsOutput = z.object({
   entries: z.array(
@@ -45,7 +51,23 @@ export const SolutionsOutput = z.object({
     }).extend({ number: z.string() }),
   ),
   warnings: z.array(z.string()),
+  notes: z.array(z.string()).default([]),
 });
+export function solutionOutputFor(questions: Question[]) {
+  const numbers = questions.map((q) => q.number);
+  if (!numbers.length)
+    throw new AppError(
+      "empty_conversion",
+      "No question identifiers are available.",
+    );
+  return SolutionsOutput.extend({
+    entries: z.array(
+      SolutionsOutput.shape.entries.element.extend({
+        number: z.enum(numbers as [string, ...string[]]),
+      }),
+    ),
+  });
+}
 export const ExplanationsOutput = z.object({
   explanations: z.array(
     z.object({
@@ -58,7 +80,16 @@ export const ExplanationsOutput = z.object({
     }),
   ),
 });
-function pageInput(documentId: string, pages: ExtractedPage[]): AiInput {
+function pageInput(
+  documentId: string,
+  pages: ExtractedPage[],
+  scope: {
+    completeDocument: boolean;
+    totalPages: number;
+    firstPrimaryPage: number;
+    lastPrimaryPage: number;
+  },
+): AiInput {
   const content: AiInputContent[] = [];
   for (const page of pages) {
     content.push({
@@ -68,6 +99,9 @@ function pageInput(documentId: string, pages: ExtractedPage[]): AiInput {
         page: page.page,
         pageAssetId: page.pageAssetId,
         text: page.text,
+        completeDocument: scope.completeDocument,
+        documentPageCount: scope.totalPages,
+        primaryPageRange: [scope.firstPrimaryPage, scope.lastPrimaryPage],
       }),
     });
     content.push({
@@ -82,10 +116,12 @@ export async function prepareExplanations(
   db: AppDb,
   content: ParsedRevision,
   ai: AiGateway,
+  progress?: (done: number, total: number) => void,
 ) {
   const explanations: ParsedRevision["explanations"] = [];
   const supported = content.questions.filter((q) => q.kind !== "unsupported");
   for (let i = 0; i < supported.length; i += 4) {
+    progress?.(i, supported.length);
     const qs = supported.slice(i, i + 4),
       ids = new Set(qs.map((q) => q.id));
     const output = await ai.structured(
@@ -125,6 +161,7 @@ export async function prepareExplanations(
       });
     }
   }
+  progress?.(supported.length, supported.length);
   return { ...content, explanations };
 }
 export function validateSources(
@@ -206,18 +243,40 @@ export async function ingestPaper(
   const questionDoc = await extractPdf(db, p.questionDocumentId);
   stage("Converting questions");
   const questions: Question[] = [],
-    warnings: string[] = [];
-  for (let i = 0; i < questionDoc.pages.length; i += 4) {
-    const pages = questionDoc.pages.slice(Math.max(0, i - 1), i + 4);
+    warnings: string[] = [],
+    notes: string[] = [];
+  for (const window of documentWindows(questionDoc.pages)) {
+    const pages = window.pages;
+    stage(
+      window.completeDocument
+        ? `Converting all ${window.totalPages} question pages`
+        : `Converting question pages ${window.firstPrimaryPage}–${window.lastPrimaryPage}`,
+    );
     const output = await ai.structured(
       QuestionsOutput,
       "paper_questions",
       PARSE_QUESTIONS,
-      pageInput(questionDoc.documentId, pages),
+      pageInput(questionDoc.documentId, pages, window),
       "INGEST",
     );
     warnings.push(...output.warnings);
-    for (const q of output.questions) {
+    notes.push(...output.notes);
+    for (const rawQuestion of output.questions) {
+      const q = {
+        ...rawQuestion,
+        number: canonicalQuestionNumber(rawQuestion.number),
+      };
+      // A complete repeated item from context pages belongs to its earlier window.
+      if (
+        !window.completeDocument &&
+        q.source.length &&
+        q.source.every(
+          (source) =>
+            source.page < window.firstPrimaryPage ||
+            source.page > window.lastPrimaryPage,
+        )
+      )
+        continue;
       const index = questions.findIndex((x) => x.number === q.number);
       const candidate: Question = {
         ...q,
@@ -240,18 +299,53 @@ export async function ingestPaper(
   stage("Matching reference solutions");
   const solution = getDocument(db, p.solutionDocumentId);
   const entries: SolutionEntry[] = [];
+  const solutionSchema = solutionOutputFor(questions);
+  const expectedQuestions = {
+    expectedQuestionNumbers: questions.map((q) => q.number),
+    instruction:
+      "Return one separate entry per exact leaf question number. Never combine subparts under a parent number.",
+    choices: questions
+      .filter((q) => q.options.length)
+      .map((q) => ({
+        number: q.number,
+        optionIds: q.options.map((o) => o.id),
+      })),
+  };
   if (solution.mime === "application/pdf") {
     const doc = await extractPdf(db, solution.id);
-    for (let i = 0; i < doc.pages.length; i += 4) {
+    for (const window of documentWindows(doc.pages)) {
+      stage(
+        window.completeDocument
+          ? `Converting all ${window.totalPages} solution pages`
+          : `Converting solution pages ${window.firstPrimaryPage}–${window.lastPrimaryPage}`,
+      );
       const output = await ai.structured(
-        SolutionsOutput,
+        solutionSchema,
         "paper_solutions",
         PARSE_SOLUTIONS,
-        pageInput(doc.documentId, doc.pages.slice(Math.max(0, i - 1), i + 4)),
+        [
+          { role: "user", content: JSON.stringify(expectedQuestions) },
+          ...pageInput(doc.documentId, window.pages, window),
+        ],
         "INGEST",
       );
       warnings.push(...output.warnings);
-      for (const entry of output.entries) {
+      notes.push(...output.notes);
+      for (const rawEntry of output.entries) {
+        const entry = {
+          ...rawEntry,
+          number: canonicalQuestionNumber(rawEntry.number),
+        };
+        if (
+          !window.completeDocument &&
+          entry.source.length &&
+          entry.source.every(
+            (source) =>
+              source.page < window.firstPrimaryPage ||
+              source.page > window.lastPrimaryPage,
+          )
+        )
+          continue;
         const index = entries.findIndex((e) => e.number === entry.number);
         if (index < 0) entries.push(entry);
         else {
@@ -267,27 +361,34 @@ export async function ingestPaper(
       "utf8",
     );
     const output = await ai.structured(
-      SolutionsOutput,
+      solutionSchema,
       "paper_solutions",
       PARSE_SOLUTIONS,
-      [{ role: "user", content: text }],
+      [
+        { role: "user", content: JSON.stringify(expectedQuestions) },
+        { role: "user", content: text },
+      ],
       "INGEST",
     );
     entries.push(...output.entries.map((e) => ({ ...e, source: [] })));
     warnings.push(...output.warnings);
+    notes.push(...output.notes);
   }
   const aligned = alignAnswers(questions, entries, p.solutionOrigin!);
   let content: ParsedRevision = {
     questions,
     answers: aligned.answers,
     explanations: [],
-    issues: [...warnings, ...aligned.issues],
+    issues: [...new Set([...warnings, ...aligned.issues])],
+    notes: [...new Set(notes)],
   };
   content.issues.push(...validateSources(db, content, p.id));
   const valid = validateRevision(content);
   if (valid.ok) {
     stage("Preparing explanations");
-    content = await prepareExplanations(db, content, ai);
+    content = await prepareExplanations(db, content, ai, (done, total) =>
+      stage(`Preparing explanations (${done}/${total})`),
+    );
   }
   const final = validateRevision(content, true);
   commit(() => {

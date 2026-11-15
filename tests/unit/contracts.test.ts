@@ -64,3 +64,16 @@ test("blank reference content cannot become a usable answer key", () => {
   r.answers[0].content = [{ kind: "markdown", text: "   " }];
   expect(validateRevision(r).ok).toBe(false);
 });
+
+test("informational extraction notes are retained without blocking a complete paper", () => {
+  const content = {
+    ...fixtureRevision(),
+    notes: [
+      "Marks are not printed; marks are null.",
+      "A diagram is preserved as an original image.",
+    ],
+  };
+  const validated = validateRevision(content, true);
+  expect(validated.ok).toBe(true);
+  expect(validated).toMatchObject({ revision: { notes: content.notes } });
+});
