@@ -6,10 +6,10 @@ The app is implemented on `codex/exam-practice-mvp` and pushed in batches to the
 
 - `npm run lint`: passed.
 - `npm run typecheck`: passed.
-- `npm test`: 29 tests passed across 18 files.
+- `npm test`: 34 tests passed across 19 files.
 - `npm run test:e2e`: 6 browser workflows passed, including a 10 question PDF + 10 solution PDF batch, automatic readiness, answer reveal after submission, MCQ and written feedback, follow-up, refresh/resume, completion, missing solutions and generated-answer labels, repair, inert HTML, mobile layout, clearing drafts, and cross-tab synchronization.
 - Production build and startup checked; production library rendered with no browser page errors or horizontal overflow.
-- The actual OpenAI SDK accepts the structured-output schemas. Tests replace external model responses; no live API quality claim is implied.
+- The actual Anthropic SDK accepts the structured-output schemas; adapter tests exercise its request and response parsing with a local transport substitute. Tests replace external model responses; no live API quality claim is implied.
 
 ## Independent review and fixes
 
@@ -43,4 +43,13 @@ The review set aside three areas, and the executor retained those boundaries:
 - A local owner can deliberately open answer-visible repair routes. The app prevents accidental answer disclosure in practice, rather than trying to prevent its owner from inspecting their own files.
 - Public multi-user deployment and automatic generation of missing reference solutions remain deferred as designed. This build is a personal local app and requires supplied official or externally generated reference solutions.
 
-Before using AI, edit the ignored `.env.local` with an API key and three accessible image-capable structured-output model IDs, then restart the app and worker. The library can be used before configuration. No secrets or original student/course documents are committed.
+Before using AI, set `ANTHROPIC_API_KEY` in the ignored `.env.local`, then restart the app and worker. Claude Haiku 5.5 is the default for every role; the three `ANTHROPIC_MODEL_*` overrides are optional. The library can be used before configuration. No secrets or original student/course documents are committed.
+
+
+## Claude provider update
+
+The user requested Anthropic credentials and Haiku after the initial MVP implementation. New model operations now use `@anthropic-ai/sdk`, Claude Messages structured outputs, and `claude-haiku-5-5` by default. Internal input contracts no longer depend on OpenAI types. Model/figure routing, local validation, timeouts, saved work, and optional per-task model overrides are retained. Conversion cache keys explicitly include the Anthropic provider. API credentials are read server-side only; existing local environment values are preserved when adding the new settings.
+
+Focused independent review found no Critical or Important issues. One deferred minor: the SDK can wrap a non-JSON prose refusal as a parse error before returning the stop reason; that case may receive the worker's bounded transient retries instead of the dedicated refusal message. Invalid output never becomes an assessment. Live Claude grading quality remains unverified without a configured key and real paper.
+
+Official references checked on 2026-11-15: [Haiku 5.5 model](https://platform.claude.com/docs/en/models/haiku-5-5/overview), [structured outputs](https://platform.claude.com/docs/en/build-with-claude/structured-outputs).

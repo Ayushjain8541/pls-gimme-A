@@ -4,7 +4,7 @@ A personal past-paper practice app. Open a module folder, upload papers and thei
 
 ## Run locally
 
-Requirements: Node.js 26, npm, Python 3.11 or newer, and an OpenAI API key for conversion and written feedback.
+Requirements: Node.js 26, npm, Python 3.11 or newer, and an Anthropic API key for conversion and written feedback.
 
 ```sh
 npm ci
@@ -13,7 +13,7 @@ python3.13 -m venv .venv
 cp .env.example .env.local
 ```
 
-Use your available Python 3.11+ executable in place of `python3.13` if needed. Add your API key and accessible model IDs to `.env.local`. All three models must support images and structured outputs so figures remain available during conversion, assessment, and follow-up. You may use the same capable model for all three. These are API credentials; a ChatGPT subscription does not configure them automatically.
+Use your available Python 3.11+ executable in place of `python3.13` if needed. Set `ANTHROPIC_API_KEY` in `.env.local`. All AI tasks default to `claude-haiku-5-5`; model IDs are optional overrides. Set `ANTHROPIC_MODEL_INGEST`, `ANTHROPIC_MODEL_FEEDBACK`, or `ANTHROPIC_MODEL_CHAT` to choose another Claude model. All three roles need image inputs and structured outputs for figure-based questions. These are API credentials; a Claude chat subscription does not configure them automatically.
 
 Start the web app and worker in separate terminals:
 
@@ -46,7 +46,7 @@ Upload the question paper first. Select **Add solutions** later to upload a PDF,
 
 ### Files and privacy
 
-Question PDFs: up to 25 MiB and 100 pages. Solution PDFs have the same limits; text/Markdown solutions are limited to 1 MiB. Select up to 40 files in a batch. Files and SQLite data live in `.data/` and are not committed. No uploaded code or AI-generated HTML is executed. Original content and responses needed for each AI operation are sent to the configured API provider; API calls set `store: false`. Back up the entire data directory while the app and worker are stopped to preserve files and database together.
+Question PDFs: up to 25 MiB and 100 pages. Solution PDFs have the same limits; text/Markdown solutions are limited to 1 MiB. Select up to 40 files in a batch. Files and SQLite data live in `.data/` and are not committed. No uploaded code or AI-generated HTML is executed. Original content and responses needed for each AI operation are sent to the Anthropic Claude API. Back up the entire data directory while the app and worker are stopped to preserve files and database together.
 
 ## Verification
 
