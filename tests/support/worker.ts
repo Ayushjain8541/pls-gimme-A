@@ -1,3 +1,19 @@
-import {createServer} from 'node:http';import {setTimeout as pause} from 'node:timers/promises';import type {z} from 'zod';import type {ResponseInput} from 'openai/resources/responses/responses';import {getDb} from '../../src/server/db/client';import {runNextJob} from '../../src/worker/runner';import type {AiGateway} from '../../src/server/ai/gateway';import {fixtureRevision} from '../fixtures/paper';
-class FixtureAi implements AiGateway{async structured<T>(schema:z.ZodType<T>,name:string,_instructions:string,input:ResponseInput):Promise<T>{const r=fixtureRevision();if(name==='paper_questions'){const candidates=r.questions.map(q=>{const {id,revisionId,order,...rest}=q;void id;void revisionId;void order;return rest;});return schema.parse({questions:candidates,warnings:[]});}if(name==='paper_solutions')return schema.parse({entries:r.answers.map(a=>{const {questionId,origin,rubricOrigin,...rest}=a;void origin;void rubricOrigin;return {...rest,number:r.questions.find(q=>q.id===questionId)!.number};}),warnings:[]});const msg=input[0] as {content:string};const data=JSON.parse(msg.content);if(name==='prepared_explanations')return schema.parse({explanations:data.questions.filter((q:{kind:string})=>q.kind!=='unsupported').map((q:{id:string;number:string})=>{const original=r.questions.find(x=>x.number===q.number)!;const e=r.explanations.find(e=>e.questionId===original.id)!;return {...e,questionId:q.id,options:Object.entries(e.byOption).map(([optionId,content])=>({optionId,content}))};})});if(name==='written_assessment')return schema.parse({verdict:'partly_correct',strengths:['Identifies zero'],issues:[{criterionId:'c1',evidence:'Zero',explanation:'Explain how this affects the two ranges.'}],worked:[{kind:'markdown',text:'Zero occupies one nonnegative representation.'}],score:{earned:1,possible:2}});return schema.parse({reply:'255 is the unsigned maximum. Signed 8-bit values range from -128 to 127.'});}}
-const db=getDb();const server=createServer((_req,res)=>res.end('ready')).listen(3101,'127.0.0.1');process.on('SIGTERM',()=>{server.close();process.exit();});const ai=new FixtureAi();while(true){if(!await runNextJob(db,ai))await pause(100);}
+import { createServer } from "node:http";
+import { setTimeout as pause } from "node:timers/promises";
+import { getDb } from "../../src/server/db/client";
+import { runNextJob } from "../../src/worker/runner";
+import { FixtureAi } from "../fixtures/ai";
+
+const db = getDb();
+const server = createServer((_req, res) => res.end("ready")).listen(
+  3101,
+  "127.0.0.1",
+);
+process.on("SIGTERM", () => {
+  server.close();
+  process.exit();
+});
+const ai = new FixtureAi();
+while (true) {
+  if (!(await runNextJob(db, ai))) await pause(100);
+}

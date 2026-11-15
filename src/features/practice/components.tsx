@@ -248,7 +248,7 @@ function QuestionPanel({
                 method: "PUT",
                 body: JSON.stringify({
                   expectedDraftVersion: version.current,
-                  ...(dirty.current && valid ? { draft: captured } : {}),
+                  ...(dirty.current ? { draft: valid ? captured : null } : {}),
                   ...extra,
                 }),
               },
