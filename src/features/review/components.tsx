@@ -210,6 +210,25 @@ export function Review({ paperId }: { paperId: string }) {
               </div>
             )}
             <label>
+              Answer type
+              <select
+                value={q.kind}
+                onChange={(e) =>
+                  updateQuestion(q.id, {
+                    kind: e.target.value as Question["kind"],
+                    requiresDrawing: e.target.value === "unsupported",
+                  })
+                }
+              >
+                <option value="single_select">Single-choice MCQ</option>
+                <option value="multi_select">Multiple-choice MCQ</option>
+                <option value="written">Typed answer</option>
+                <option value="unsupported">
+                  Exclude unsupported question
+                </option>
+              </select>
+            </label>
+            <label>
               Question text
               <textarea
                 value={text(q.prompt)}

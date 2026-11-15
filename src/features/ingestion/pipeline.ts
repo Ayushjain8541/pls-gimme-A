@@ -31,6 +31,8 @@ import {
 import { one, all } from "../../server/db/queries";
 import { AppError } from "../../server/errors";
 import path from "node:path";
+import { mergeQuestionFragments, mergeSolutionFragments } from "./merge";
+import { visualInputs } from "../../server/ai/images";
 export const QuestionsOutput = z.object({
   questions: z.array(
     QuestionSchema.omit({ id: true, revisionId: true, order: true }),
@@ -80,6 +82,7 @@ function pageInput(documentId: string, pages: ExtractedPage[]): ResponseInput {
   return [{ role: "user", content }];
 }
 export async function prepareExplanations(
+  db: AppDb,
   content: ParsedRevision,
   ai: AiGateway,
 ) {
@@ -100,6 +103,10 @@ export async function prepareExplanations(
             answers: content.answers.filter((a) => ids.has(a.questionId)),
           }),
         },
+        ...visualInputs(db, {
+          questions: qs,
+          answers: content.answers.filter((a) => ids.has(a.questionId)),
+        }),
       ],
       "INGEST",
     );
@@ -214,22 +221,18 @@ export async function ingestPaper(
     );
     warnings.push(...output.warnings);
     for (const q of output.questions) {
-      const old = questions.find((x) => x.number === q.number);
-      if (old) {
-        if (JSON.stringify(old.prompt) !== JSON.stringify(q.prompt)) {
-          old.prompt.push(...q.prompt);
-          old.source.push(...q.source);
-          for (const o of q.options)
-            if (!old.options.some((x) => x.id === o.id)) old.options.push(o);
-        }
-        continue;
-      }
-      questions.push({
+      const index = questions.findIndex((x) => x.number === q.number);
+      const candidate: Question = {
         ...q,
         id: stableQuestionId(p.id, q.number),
         revisionId: "pending",
-        order: questions.length,
-      });
+        order: index >= 0 ? questions[index].order : questions.length,
+      };
+      if (index >= 0) {
+        const merged = mergeQuestionFragments(questions[index], candidate);
+        questions[index] = merged.question;
+        warnings.push(...merged.issues);
+      } else questions.push(candidate);
     }
   }
   if (!questions.length)
@@ -251,8 +254,15 @@ export async function ingestPaper(
         "INGEST",
       );
       warnings.push(...output.warnings);
-      for (const e of output.entries)
-        if (!entries.some((a) => a.number === e.number)) entries.push(e);
+      for (const entry of output.entries) {
+        const index = entries.findIndex((e) => e.number === entry.number);
+        if (index < 0) entries.push(entry);
+        else {
+          const merged = mergeSolutionFragments(entries[index], entry);
+          entries[index] = merged.entry;
+          warnings.push(...merged.issues);
+        }
+      }
     }
   } else {
     const text = readFileSync(
@@ -280,7 +290,7 @@ export async function ingestPaper(
   const valid = validateRevision(content);
   if (valid.ok) {
     stage("Preparing explanations");
-    content = await prepareExplanations(content, ai);
+    content = await prepareExplanations(db, content, ai);
   }
   const final = validateRevision(content, true);
   commit(() => {

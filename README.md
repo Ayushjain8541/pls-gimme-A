@@ -13,7 +13,7 @@ python3.13 -m venv .venv
 cp .env.example .env.local
 ```
 
-Use your available Python 3.11+ executable in place of `python3.13` if needed. Add your API key and accessible model IDs to `.env.local`. The ingestion model must support images and structured outputs; the feedback/chat models must support structured outputs. You may use the same capable model for all three. These are API credentials; a ChatGPT subscription does not configure them automatically.
+Use your available Python 3.11+ executable in place of `python3.13` if needed. Add your API key and accessible model IDs to `.env.local`. All three models must support images and structured outputs so figures remain available during conversion, assessment, and follow-up. You may use the same capable model for all three. These are API credentials; a ChatGPT subscription does not configure them automatically.
 
 Start the web app and worker in separate terminals:
 

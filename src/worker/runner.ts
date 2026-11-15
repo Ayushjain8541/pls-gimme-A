@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { CachedIngestionGateway } from "../server/ai/cache";
+import { visualInputs } from "../server/ai/images";
 import { z } from "zod";
 import type { AppDb } from "../server/db/client";
 import type { AiGateway } from "../server/ai/gateway";
@@ -45,7 +46,7 @@ export async function runNextJob(db: AppDb, ai: AiGateway): Promise<boolean> {
             409,
           );
         stage("Preparing explanations");
-        const content = await prepareExplanations(r.content, ai);
+        const content = await prepareExplanations(db, r.content, ai);
         finishJob(db, job, () => {
           const latest = getRevision(db, r.id);
           if (latest.version !== r.version)
@@ -80,7 +81,7 @@ export async function runNextJob(db: AppDb, ai: AiGateway): Promise<boolean> {
         AssessmentSchema,
         "written_assessment",
         EVALUATE,
-        [{ role: "user", content: JSON.stringify(c) }],
+        [{ role: "user", content: JSON.stringify(c) }, ...visualInputs(db, c)],
         "FEEDBACK",
       );
       const feedback = validateAssessment(raw, c);
@@ -99,7 +100,10 @@ export async function runNextJob(db: AppDb, ai: AiGateway): Promise<boolean> {
         z.object({ reply: z.string().min(1) }),
         "question_followup",
         REPLY,
-        [{ role: "user", content: JSON.stringify({ ...c, messages }) }],
+        [
+          { role: "user", content: JSON.stringify({ ...c, messages }) },
+          ...visualInputs(db, c),
+        ],
         "CHAT",
       );
       finishJob(db, job, () => {
