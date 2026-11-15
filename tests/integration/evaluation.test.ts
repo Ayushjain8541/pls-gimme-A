@@ -1,2 +1,49 @@
-import {test,expect} from 'vitest';import {fixtureRevision} from '../fixtures/paper';import {validateAssessment} from '../../src/features/feedback/evaluate';
-test('written judgments stay provisional and scores cannot exceed the supplied rubric',()=>{const r=fixtureRevision();const input={question:r.questions[1],answer:r.answers[1],response:{kind:'written' as const,text:'Zero takes one representation.'},prepared:r.explanations[1]};const raw={verdict:'partly_correct',strengths:['Mentions zero'],issues:[{criterionId:'c1',evidence:'Zero',explanation:'Explain which range contains it.'}],worked:[{kind:'markdown',text:'Zero occupies a nonnegative representation.'}],score:{earned:1,possible:2}};expect(validateAssessment(raw,input).provisional).toBe(true);expect(()=>validateAssessment({...raw,score:{earned:10,possible:2}},input)).toThrow();expect(()=>validateAssessment({...raw,issues:[{criterionId:'c1',evidence:'invented words',explanation:'Wrong'}]},input)).toThrow();});
+import { test, expect } from "vitest";
+import { fixtureRevision } from "../fixtures/paper";
+import { validateAssessment } from "../../src/features/feedback/evaluate";
+test("written judgments stay provisional and scores cannot exceed the supplied rubric", () => {
+  const r = fixtureRevision();
+  const input = {
+    question: r.questions[1],
+    answer: r.answers[1],
+    response: {
+      kind: "written" as const,
+      text: "Zero takes one representation.",
+    },
+    prepared: r.explanations[1],
+  };
+  const raw = {
+    verdict: "partly_correct",
+    strengths: ["Mentions zero"],
+    issues: [
+      {
+        criterionId: "c1",
+        evidence: "Zero",
+        explanation: "Explain which range contains it.",
+      },
+    ],
+    worked: [
+      { kind: "markdown", text: "Zero occupies a nonnegative representation." },
+    ],
+    score: { earned: 1, possible: 2 },
+  };
+  expect(validateAssessment(raw, input).provisional).toBe(true);
+  expect(() =>
+    validateAssessment({ ...raw, score: { earned: 10, possible: 2 } }, input),
+  ).toThrow();
+  expect(() =>
+    validateAssessment(
+      {
+        ...raw,
+        issues: [
+          {
+            criterionId: "c1",
+            evidence: "invented words",
+            explanation: "Wrong",
+          },
+        ],
+      },
+      input,
+    ),
+  ).toThrow();
+});

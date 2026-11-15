@@ -1,3 +1,93 @@
-'use client';
-import Link from 'next/link';import {usePathname} from 'next/navigation';import {BookOpen,Layers3,Folder,ArrowUpRight,Command,Sparkles} from 'lucide-react';import {useApi} from './api';import type {Module} from '@/features/library/service';
-export function AppShell({children}:{children:React.ReactNode}){const pathname=usePathname(),{data:modules}=useApi<Module[]>('/api/modules',4000),{data:status}=useApi<{aiConfigured:boolean}>('/api/status',10000);return <div className="app-shell"><aside className="sidebar"><Link href="/" className="brand"><span className="brand-icon"><Layers3 size={22}/></span>gimme<span className="brand-a">A</span><span className="beta">BETA</span></Link><div className="workspace-label">YOUR WORKSPACE</div><Link href="/" className={`nav-item ${pathname==='/'?'active':''}`}><BookOpen size={18}/>My modules<span className="nav-count">{modules?.length||0}</span></Link><div className="nav-section">MODULES</div><nav aria-label="Modules">{modules?.map((m,i)=><Link key={m.id} className={`nav-item ${pathname.includes(m.id)?'active':''}`} href={`/modules/${m.id}`}><Folder size={17} className={`folder-color color-${i%4}`}/>{m.code}</Link>)}</nav><div className="sidebar-note"><Sparkles size={20}/><strong>Small steps. Stronger answers.</strong><p>One question at a time, at your own pace.</p></div><div className="sidebar-bottom"><div className="avatar">Y</div><div><strong>Your study space</strong><small>Personal workspace</small></div><Command size={15}/></div></aside><div className="main-column"><header className="topbar"><span><span className="muted">Workspace</span><span className="slash">/</span>My practice</span><span className="topbar-right"><span className="live-dot"/>Your progress, saved here<ArrowUpRight size={14}/></span></header>{status&&!status.aiConfigured&&<div className="setup-banner"><Sparkles size={15}/><span>Connect AI to prepare papers and assess written answers. Add your API key and model names in <code>.env.local</code>, then start the worker. Your library is ready to use.</span></div>}<main>{children}</main><footer>Made for the practice that makes it click.<span>Gimme A · Your personal paper library</span></footer></div></div>;}
+"use client";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import {
+  BookOpen,
+  Layers3,
+  Folder,
+  ArrowUpRight,
+  Command,
+  Sparkles,
+} from "lucide-react";
+import { useApi } from "./api";
+import type { Module } from "@/features/library/service";
+export function AppShell({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname(),
+    { data: modules } = useApi<Module[]>("/api/modules", 4000),
+    { data: status } = useApi<{ aiConfigured: boolean }>("/api/status", 10000);
+  return (
+    <div className="app-shell">
+      <aside className="sidebar">
+        <Link href="/" className="brand">
+          <span className="brand-icon">
+            <Layers3 size={22} />
+          </span>
+          gimme<span className="brand-a">A</span>
+          <span className="beta">BETA</span>
+        </Link>
+        <div className="workspace-label">YOUR WORKSPACE</div>
+        <Link
+          href="/"
+          className={`nav-item ${pathname === "/" ? "active" : ""}`}
+        >
+          <BookOpen size={18} />
+          My modules<span className="nav-count">{modules?.length || 0}</span>
+        </Link>
+        <div className="nav-section">MODULES</div>
+        <nav aria-label="Modules">
+          {modules?.map((m, i) => (
+            <Link
+              key={m.id}
+              className={`nav-item ${pathname.includes(m.id) ? "active" : ""}`}
+              href={`/modules/${m.id}`}
+            >
+              <Folder size={17} className={`folder-color color-${i % 4}`} />
+              {m.code}
+            </Link>
+          ))}
+        </nav>
+        <div className="sidebar-note">
+          <Sparkles size={20} />
+          <strong>Small steps. Stronger answers.</strong>
+          <p>One question at a time, at your own pace.</p>
+        </div>
+        <div className="sidebar-bottom">
+          <div className="avatar">Y</div>
+          <div>
+            <strong>Your study space</strong>
+            <small>Personal workspace</small>
+          </div>
+          <Command size={15} />
+        </div>
+      </aside>
+      <div className="main-column">
+        <header className="topbar">
+          <span>
+            <span className="muted">Workspace</span>
+            <span className="slash">/</span>My practice
+          </span>
+          <span className="topbar-right">
+            <span className="live-dot" />
+            Your progress, saved here
+            <ArrowUpRight size={14} />
+          </span>
+        </header>
+        {status && !status.aiConfigured && (
+          <div className="setup-banner">
+            <Sparkles size={15} />
+            <span>
+              Connect AI to prepare papers and assess written answers. Add your
+              API key and model names in <code>.env.local</code>, then start the
+              worker. Your library is ready to use.
+            </span>
+          </div>
+        )}
+        <main>{children}</main>
+        <footer>
+          Made for the practice that makes it click.
+          <span>Gimme A · Your personal paper library</span>
+        </footer>
+      </div>
+    </div>
+  );
+}

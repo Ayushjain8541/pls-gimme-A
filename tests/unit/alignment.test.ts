@@ -1,2 +1,21 @@
-import {test,expect} from 'vitest';import {alignAnswers} from '../../src/features/ingestion/align';import {fixtureRevision} from '../fixtures/paper';
-test('unmatched numbering is flagged instead of borrowing another answer',()=>{const r=fixtureRevision();const result=alignAnswers(r.questions,[{number:'2(b)',content:r.answers[1].content,correctOptionIds:null,source:[],rubric:null}], 'official');expect(result.issues.join(' ')).toContain('2(a)');expect(result.answers).toHaveLength(0);});
+import { test, expect } from "vitest";
+import { alignAnswers } from "../../src/features/ingestion/align";
+import { fixtureRevision } from "../fixtures/paper";
+test("unmatched numbering is flagged instead of borrowing another answer", () => {
+  const r = fixtureRevision();
+  const result = alignAnswers(
+    r.questions,
+    [
+      {
+        number: "2(b)",
+        content: r.answers[1].content,
+        correctOptionIds: null,
+        source: [],
+        rubric: null,
+      },
+    ],
+    "official",
+  );
+  expect(result.issues.join(" ")).toContain("2(a)");
+  expect(result.answers).toHaveLength(0);
+});

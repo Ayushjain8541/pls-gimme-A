@@ -1,3 +1,25 @@
-import {test,expect} from 'vitest';import {mkdtempSync} from 'node:fs';import {tmpdir} from 'node:os';import {openDb} from '../../src/server/db/client';
-import {enqueueJob,claimJob,finishJob} from '../../src/features/jobs/service';
-test('only one worker owns a job and expired workers cannot commit results',()=>{const db=openDb(mkdtempSync(`${tmpdir()}/jobs-`)+'/db');const a=enqueueJob(db,'ingest','paper1',{paperId:'p'});expect(enqueueJob(db,'ingest','paper1',{}).id).toBe(a.id);const first=claimJob(db,1000)!;expect(claimJob(db,1001)).toBeNull();const second=claimJob(db,100000)!;expect(second.id).toBe(first.id);expect(()=>finishJob(db,first,()=>{})).toThrow();let committed=false;finishJob(db,second,()=>{committed=true;});expect(committed).toBe(true);db.close();});
+import { test, expect } from "vitest";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { openDb } from "../../src/server/db/client";
+import {
+  enqueueJob,
+  claimJob,
+  finishJob,
+} from "../../src/features/jobs/service";
+test("only one worker owns a job and expired workers cannot commit results", () => {
+  const db = openDb(mkdtempSync(`${tmpdir()}/jobs-`) + "/db");
+  const a = enqueueJob(db, "ingest", "paper1", { paperId: "p" });
+  expect(enqueueJob(db, "ingest", "paper1", {}).id).toBe(a.id);
+  const first = claimJob(db, 1000)!;
+  expect(claimJob(db, 1001)).toBeNull();
+  const second = claimJob(db, 100000)!;
+  expect(second.id).toBe(first.id);
+  expect(() => finishJob(db, first, () => {})).toThrow();
+  let committed = false;
+  finishJob(db, second, () => {
+    committed = true;
+  });
+  expect(committed).toBe(true);
+  db.close();
+});

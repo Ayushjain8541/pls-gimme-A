@@ -1,1 +1,12 @@
-import {Summary} from '@/features/practice/components';export default async function Page({params,searchParams}:{params:Promise<{paperId:string}>;searchParams:Promise<{session?:string}>}){const {paperId}=await params;const {session}=await searchParams;return <Summary paperId={paperId} sessionId={session}/>;}
+import { Summary } from "@/features/practice/components";
+export default async function Page({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ paperId: string }>;
+  searchParams: Promise<{ session?: string }>;
+}) {
+  const { paperId } = await params;
+  const { session } = await searchParams;
+  return <Summary paperId={paperId} sessionId={session} />;
+}

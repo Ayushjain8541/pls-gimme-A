@@ -1,5 +1,398 @@
-'use client';
-import Link from 'next/link';import {useState} from 'react';import {Folder,Plus,FileText,ArrowRight,ChevronRight,Search,X,Upload,Copy,Check} from 'lucide-react';import {useApi,post} from '@/components/api';import {StatusBadge} from '@/components/StatusBadge';import {BatchUpload,uploadFile} from '@/features/batch/components';import type {Module} from './service';import type {listPapers} from './service';import type {Paper} from '@/features/documents/service';
-type PaperCard=ReturnType<typeof listPapers>[number];
-export function ModuleDetail({moduleId}:{moduleId:string}){const {data:module,error:moduleError}=useApi<Module>(`/api/modules/${moduleId}`),{data:papers,error,reload}=useApi<PaperCard[]>(`/api/modules/${moduleId}/papers`,2500);const [upload,setUpload]=useState(false),[missing,setMissing]=useState<string|null>(null),[filter,setFilter]=useState('all'),[query,setQuery]=useState(''),[actionError,setActionError]=useState('');const total=papers?.length||0,completed=papers?.filter(p=>p.progress.state==='completed').length||0,ongoing=papers?.filter(p=>p.progress.state==='in_progress').length||0;const visible=papers?.filter(p=>(filter==='all'||p.progress.state===filter)&&p.title.toLowerCase().includes(query.toLowerCase()));async function retry(jobId:string){try{await post(`/api/jobs/${jobId}/retry`);await reload();}catch(e){setActionError((e as Error).message);}}return <><div className="breadcrumb"><Link href="/">My modules</Link><ChevronRight size={12}/><span>{module?.code||'Module'}</span></div><div className="page-heading"><div className="module-title"><span className="folder-tile"><Folder size={27}/></span><div><h1>{module?.code||'Your module'}</h1><p>{module?.title||'Loading your papers…'}</p></div></div><button className="button primary" onClick={()=>setUpload(true)}><Plus size={16}/>Upload papers</button></div><div className="stats-row"><div className="stat"><span>In your library</span><strong>{total}</strong><small>papers</small></div><div className="stat"><span>In progress</span><strong>{ongoing}</strong><small>papers</small></div><div className="stat"><span>Completed</span><strong>{completed}</strong><small>papers</small></div></div><div className="toolbar"><div className="tabs">{[['all','All papers'],['not_started','Not started'],['in_progress','In progress'],['completed','Completed']].map(([id,label])=><button key={id} className={filter===id?'selected':''} onClick={()=>setFilter(id)}>{label}</button>)}</div><div className="search"><Search size={13}/><input aria-label="Search papers" placeholder="Find a paper…" value={query} onChange={e=>setQuery(e.target.value)}/></div></div>{(error||moduleError||actionError)&&<p className="error" role="alert">{error||moduleError||actionError}</p>}<div className="papers-table"><div className="papers-header"><span>PAPER</span><span>STATUS</span><span>PROGRESS</span><span/></div>{visible?.map(p=><div className="paper-row" key={p.id}><div className="paper-info"><span className="file-icon"><FileText size={18}/></span><div><h3>{p.title}</h3><small>{p.state==='processing'||p.state==='queued'?p.job?.stage||'Preparing your questions':p.job?.errorMessage||'Past paper'}</small></div></div><StatusBadge state={p.state==='ready'?p.progress.state==='not_started'?'ready':p.progress.state:p.state}/><div className="paper-progress"><span>{p.state==='ready'?`${p.progress.submitted} / ${p.progress.included} answered`:p.state==='needs_solutions'?'Add a solution file':'Preparing questions'}</span><div className="progress-track"><div style={{width:`${p.progress.included?Math.round(p.progress.assessed/p.progress.included*100):0}%`}}/></div></div><div className="paper-action">{p.state==='ready'?<Link className="button small" href={`/papers/${p.id}/practice`}>{p.progress.state==='completed'?'Review paper':p.progress.submitted?'Continue':'Start practice'}<ArrowRight size={13}/></Link>:p.state==='needs_solutions'?<button className="button small" onClick={()=>setMissing(p.id)}>Add solutions<Plus size={12}/></button>:p.state==='needs_review'?<Link className="button small" href={`/papers/${p.id}/review`}>Resolve issues<ArrowRight size={12}/></Link>:p.state==='failed'&&p.job?<button className="button small" onClick={()=>void retry(p.job!.id)}>Retry preparation</button>:<span className="muted" style={{fontSize:10}}>Working in background…</span>}</div></div>)}{papers&&visible?.length===0&&<div className="empty-state"><Folder size={38}/><h2>{total?'No matching papers':'Your next practice session starts here.'}</h2><p>{total?'Try another filter or search.':'Upload your papers and we’ll turn them into focused practice.'}</p>{!total&&<button className="button primary" onClick={()=>setUpload(true)}><Upload size={15}/>Upload papers</button>}</div>}{!papers&&!error&&<p className="loading">Opening your library…</p>}</div><p className="notice">Your paper stays in its original order. Answers appear after you submit, with a full explanation before you move on.</p>{upload&&<BatchUpload moduleId={moduleId} onClose={()=>setUpload(false)} onComplete={()=>{setUpload(false);void reload();}}/>}{missing&&<MissingSolutions paperId={missing} moduleId={moduleId} onClose={()=>setMissing(null)} onComplete={()=>{setMissing(null);void reload();}}/>}</>;}
-function MissingSolutions({paperId,moduleId,onClose,onComplete}:{paperId:string;moduleId:string;onClose:()=>void;onComplete:()=>void}){const {data:paper}=useApi<Paper&{solutionPrompt:string}>(`/api/papers/${paperId}`);const [file,setFile]=useState<File|null>(null),[text,setText]=useState(''),[origin,setOrigin]=useState('official'),[busy,setBusy]=useState(false),[error,setError]=useState(''),[copied,setCopied]=useState(false);async function attach(){setBusy(true);setError('');try{const chosen=file||(text.trim()?new File([text],'solutions.md',{type:'text/markdown'}):null);if(!chosen)throw new Error('Choose a solution file or paste the solutions.');const doc=await uploadFile(moduleId,chosen,'solution');await post(`/api/papers/${paperId}/solutions`,{documentId:doc.id,origin});onComplete();}catch(e){setError((e as Error).message);}finally{setBusy(false);}}return <div className="modal-backdrop"><section className="modal large" role="dialog" aria-modal="true" aria-labelledby="solution-title"><button className="icon-button close" onClick={onClose} aria-label="Close solutions"><X size={20}/></button><h2 id="solution-title">Add solutions for {paper?.title}.</h2><p>Use an official key or a solution file you generated elsewhere.</p><label>Solution file<input type="file" accept=".pdf,.txt,.md,.markdown" onChange={e=>setFile(e.target.files?.[0]||null)}/></label><label>Or paste solutions<textarea value={text} onChange={e=>setText(e.target.value)} placeholder="1. A — Worked explanation…"/></label><label>Solution origin<select value={origin} onChange={e=>setOrigin(e.target.value)}><option value="official">Official / provided by course</option><option value="external_ai">AI-generated externally</option></select></label><details><summary className="source-link">Need to generate a solution file elsewhere?</summary><p className="notice">Copy this prompt into your preferred AI chat and attach the original paper. Save its response as Markdown or text and upload it here.</p><textarea aria-label="External solution prompt" readOnly value={paper?.solutionPrompt||''}/><button className="button small" onClick={async()=>{try{await navigator.clipboard.writeText(paper?.solutionPrompt||'');setCopied(true);}catch{setError('Select and copy the prompt above.');}}}>{copied?<Check size={13}/>:<Copy size={13}/>}Copy prompt</button></details>{error&&<p className="error" role="alert">{error}</p>}<div className="modal-actions"><button className="button primary" disabled={busy} onClick={()=>void attach()}>{busy?'Attaching…':'Attach and prepare'}<ArrowRight size={14}/></button></div></section></div>;}
+"use client";
+import Link from "next/link";
+import { useState } from "react";
+import {
+  Folder,
+  Plus,
+  FileText,
+  ArrowRight,
+  ChevronRight,
+  Search,
+  X,
+  Upload,
+  Copy,
+  Check,
+} from "lucide-react";
+import { useApi, post } from "@/components/api";
+import { StatusBadge } from "@/components/StatusBadge";
+import { BatchUpload, uploadFile } from "@/features/batch/components";
+import type { Module } from "./service";
+import type { listPapers } from "./service";
+import type { Paper } from "@/features/documents/service";
+type PaperCard = ReturnType<typeof listPapers>[number];
+export function ModuleDetail({ moduleId }: { moduleId: string }) {
+  const { data: module, error: moduleError } = useApi<Module>(
+      `/api/modules/${moduleId}`,
+    ),
+    {
+      data: papers,
+      error,
+      reload,
+    } = useApi<PaperCard[]>(`/api/modules/${moduleId}/papers`, 2500);
+  const [upload, setUpload] = useState(false),
+    [missing, setMissing] = useState<string | null>(null),
+    [filter, setFilter] = useState("all"),
+    [query, setQuery] = useState(""),
+    [actionError, setActionError] = useState("");
+  const total = papers?.length || 0,
+    completed =
+      papers?.filter((p) => p.progress.state === "completed").length || 0,
+    ongoing =
+      papers?.filter((p) => p.progress.state === "in_progress").length || 0;
+  const visible = papers?.filter(
+    (p) =>
+      (filter === "all" || p.progress.state === filter) &&
+      p.title.toLowerCase().includes(query.toLowerCase()),
+  );
+  async function retry(jobId: string) {
+    try {
+      await post(`/api/jobs/${jobId}/retry`);
+      await reload();
+    } catch (e) {
+      setActionError((e as Error).message);
+    }
+  }
+  return (
+    <>
+      <div className="breadcrumb">
+        <Link href="/">My modules</Link>
+        <ChevronRight size={12} />
+        <span>{module?.code || "Module"}</span>
+      </div>
+      <div className="page-heading">
+        <div className="module-title">
+          <span className="folder-tile">
+            <Folder size={27} />
+          </span>
+          <div>
+            <h1>{module?.code || "Your module"}</h1>
+            <p>{module?.title || "Loading your papers…"}</p>
+          </div>
+        </div>
+        <button className="button primary" onClick={() => setUpload(true)}>
+          <Plus size={16} />
+          Upload papers
+        </button>
+      </div>
+      <div className="stats-row">
+        <div className="stat">
+          <span>In your library</span>
+          <strong>{total}</strong>
+          <small>papers</small>
+        </div>
+        <div className="stat">
+          <span>In progress</span>
+          <strong>{ongoing}</strong>
+          <small>papers</small>
+        </div>
+        <div className="stat">
+          <span>Completed</span>
+          <strong>{completed}</strong>
+          <small>papers</small>
+        </div>
+      </div>
+      <div className="toolbar">
+        <div className="tabs">
+          {[
+            ["all", "All papers"],
+            ["not_started", "Not started"],
+            ["in_progress", "In progress"],
+            ["completed", "Completed"],
+          ].map(([id, label]) => (
+            <button
+              key={id}
+              className={filter === id ? "selected" : ""}
+              onClick={() => setFilter(id)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <div className="search">
+          <Search size={13} />
+          <input
+            aria-label="Search papers"
+            placeholder="Find a paper…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+        </div>
+      </div>
+      {(error || moduleError || actionError) && (
+        <p className="error" role="alert">
+          {error || moduleError || actionError}
+        </p>
+      )}
+      <div className="papers-table">
+        <div className="papers-header">
+          <span>PAPER</span>
+          <span>STATUS</span>
+          <span>PROGRESS</span>
+          <span />
+        </div>
+        {visible?.map((p) => (
+          <div className="paper-row" key={p.id}>
+            <div className="paper-info">
+              <span className="file-icon">
+                <FileText size={18} />
+              </span>
+              <div>
+                <h3>{p.title}</h3>
+                <small>
+                  {p.state === "processing" || p.state === "queued"
+                    ? p.job?.stage || "Preparing your questions"
+                    : p.job?.errorMessage || "Past paper"}
+                </small>
+              </div>
+            </div>
+            <StatusBadge
+              state={
+                p.state === "ready"
+                  ? p.progress.state === "not_started"
+                    ? "ready"
+                    : p.progress.state
+                  : p.state
+              }
+            />
+            <div className="paper-progress">
+              <span>
+                {p.state === "ready"
+                  ? `${p.progress.submitted} / ${p.progress.included} answered`
+                  : p.state === "needs_solutions"
+                    ? "Add a solution file"
+                    : "Preparing questions"}
+              </span>
+              <div className="progress-track">
+                <div
+                  style={{
+                    width: `${p.progress.included ? Math.round((p.progress.assessed / p.progress.included) * 100) : 0}%`,
+                  }}
+                />
+              </div>
+            </div>
+            <div className="paper-action">
+              {p.state === "ready" ? (
+                <Link
+                  className="button small"
+                  href={`/papers/${p.id}/practice`}
+                >
+                  {p.progress.state === "completed"
+                    ? "Review paper"
+                    : p.progress.submitted
+                      ? "Continue"
+                      : "Start practice"}
+                  <ArrowRight size={13} />
+                </Link>
+              ) : p.state === "needs_solutions" ? (
+                <button
+                  className="button small"
+                  onClick={() => setMissing(p.id)}
+                >
+                  Add solutions
+                  <Plus size={12} />
+                </button>
+              ) : p.state === "needs_review" ? (
+                <Link className="button small" href={`/papers/${p.id}/review`}>
+                  Resolve issues
+                  <ArrowRight size={12} />
+                </Link>
+              ) : p.state === "failed" && p.job ? (
+                <button
+                  className="button small"
+                  onClick={() => void retry(p.job!.id)}
+                >
+                  Retry preparation
+                </button>
+              ) : (
+                <span className="muted" style={{ fontSize: 10 }}>
+                  Working in background…
+                </span>
+              )}
+            </div>
+          </div>
+        ))}
+        {papers && visible?.length === 0 && (
+          <div className="empty-state">
+            <Folder size={38} />
+            <h2>
+              {total
+                ? "No matching papers"
+                : "Your next practice session starts here."}
+            </h2>
+            <p>
+              {total
+                ? "Try another filter or search."
+                : "Upload your papers and we’ll turn them into focused practice."}
+            </p>
+            {!total && (
+              <button
+                className="button primary"
+                onClick={() => setUpload(true)}
+              >
+                <Upload size={15} />
+                Upload papers
+              </button>
+            )}
+          </div>
+        )}
+        {!papers && !error && <p className="loading">Opening your library…</p>}
+      </div>
+      <p className="notice">
+        Your paper stays in its original order. Answers appear after you submit,
+        with a full explanation before you move on.
+      </p>
+      {upload && (
+        <BatchUpload
+          moduleId={moduleId}
+          onClose={() => setUpload(false)}
+          onComplete={() => {
+            setUpload(false);
+            void reload();
+          }}
+        />
+      )}
+      {missing && (
+        <MissingSolutions
+          paperId={missing}
+          moduleId={moduleId}
+          onClose={() => setMissing(null)}
+          onComplete={() => {
+            setMissing(null);
+            void reload();
+          }}
+        />
+      )}
+    </>
+  );
+}
+function MissingSolutions({
+  paperId,
+  moduleId,
+  onClose,
+  onComplete,
+}: {
+  paperId: string;
+  moduleId: string;
+  onClose: () => void;
+  onComplete: () => void;
+}) {
+  const { data: paper } = useApi<Paper & { solutionPrompt: string }>(
+    `/api/papers/${paperId}`,
+  );
+  const [file, setFile] = useState<File | null>(null),
+    [text, setText] = useState(""),
+    [origin, setOrigin] = useState("official"),
+    [busy, setBusy] = useState(false),
+    [error, setError] = useState(""),
+    [copied, setCopied] = useState(false);
+  async function attach() {
+    setBusy(true);
+    setError("");
+    try {
+      const chosen =
+        file ||
+        (text.trim()
+          ? new File([text], "solutions.md", { type: "text/markdown" })
+          : null);
+      if (!chosen)
+        throw new Error("Choose a solution file or paste the solutions.");
+      const doc = await uploadFile(moduleId, chosen, "solution");
+      await post(`/api/papers/${paperId}/solutions`, {
+        documentId: doc.id,
+        origin,
+      });
+      onComplete();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <div className="modal-backdrop">
+      <section
+        className="modal large"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="solution-title"
+      >
+        <button
+          className="icon-button close"
+          onClick={onClose}
+          aria-label="Close solutions"
+        >
+          <X size={20} />
+        </button>
+        <h2 id="solution-title">Add solutions for {paper?.title}.</h2>
+        <p>Use an official key or a solution file you generated elsewhere.</p>
+        <label>
+          Solution file
+          <input
+            type="file"
+            accept=".pdf,.txt,.md,.markdown"
+            onChange={(e) => setFile(e.target.files?.[0] || null)}
+          />
+        </label>
+        <label>
+          Or paste solutions
+          <textarea
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="1. A — Worked explanation…"
+          />
+        </label>
+        <label>
+          Solution origin
+          <select value={origin} onChange={(e) => setOrigin(e.target.value)}>
+            <option value="official">Official / provided by course</option>
+            <option value="external_ai">AI-generated externally</option>
+          </select>
+        </label>
+        <details>
+          <summary className="source-link">
+            Need to generate a solution file elsewhere?
+          </summary>
+          <p className="notice">
+            Copy this prompt into your preferred AI chat and attach the original
+            paper. Save its response as Markdown or text and upload it here.
+          </p>
+          <textarea
+            aria-label="External solution prompt"
+            readOnly
+            value={paper?.solutionPrompt || ""}
+          />
+          <button
+            className="button small"
+            onClick={async () => {
+              try {
+                await navigator.clipboard.writeText(
+                  paper?.solutionPrompt || "",
+                );
+                setCopied(true);
+              } catch {
+                setError("Select and copy the prompt above.");
+              }
+            }}
+          >
+            {copied ? <Check size={13} /> : <Copy size={13} />}Copy prompt
+          </button>
+        </details>
+        {error && (
+          <p className="error" role="alert">
+            {error}
+          </p>
+        )}
+        <div className="modal-actions">
+          <button
+            className="button primary"
+            disabled={busy}
+            onClick={() => void attach()}
+          >
+            {busy ? "Attaching…" : "Attach and prepare"}
+            <ArrowRight size={14} />
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}

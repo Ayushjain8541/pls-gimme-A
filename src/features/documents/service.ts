@@ -1,12 +1,254 @@
-import {randomUUID,createHash} from 'node:crypto';import {mkdirSync,renameSync,unlinkSync,existsSync} from 'node:fs';import {open} from 'node:fs/promises';import path from 'node:path';import {z} from 'zod';
-import type {AppDb} from '../../server/db/client';import {one} from '../../server/db/queries';import {AppError,requireValue} from '../../server/errors';import {getModule} from '../library/service';import {enqueueJob} from '../jobs/service';
-export type DocumentMeta={id:string;moduleId:string;role:'question'|'solution';originalName:string;mime:string;storageKey:string;byteLength:number};
-export type Paper={id:string;moduleId:string;title:string;questionDocumentId:string;solutionDocumentId:string|null;solutionOrigin:'official'|'external_ai'|null;state:string;activeRevisionId:string|null;createdAt:string};
-export const storageDir=(db:AppDb)=>path.join(path.dirname(db.name),'files');
-export function getDocument(db:AppDb,id:string){return requireValue(one<DocumentMeta>(db,'SELECT * FROM documents WHERE id=? AND ownerId=?',id,'local'));}
-export function getPaper(db:AppDb,id:string){return requireValue(one<Paper>(db,'SELECT * FROM papers WHERE id=? AND ownerId=?',id,'local'));}
-export async function saveDocument(db:AppDb,moduleId:string,input:{name:string;mime:string;role:'question'|'solution';stream:ReadableStream<Uint8Array>}):Promise<DocumentMeta>{getModule(db,moduleId);const role=z.enum(['question','solution']).parse(input.role);const pdf=/\.pdf$/i.test(input.name);if(role==='question'&&!pdf)throw new AppError('unsupported_file','Question papers must be PDFs.');if(!pdf&&!/\.(txt|md|markdown)$/i.test(input.name))throw new AppError('unsupported_file','Use PDF, plain text, or Markdown solutions.');const max=pdf?25*1024*1024:1024*1024;mkdirSync(storageDir(db),{recursive:true});const id=randomUUID(),temp=path.join(storageDir(db),id+'.tmp'),dest=path.join(storageDir(db),id);let size=0;const hash=createHash('sha256');const file=await open(temp,'wx');const reader=input.stream.getReader();try{while(true){const part=await reader.read();if(part.done)break;size+=part.value.length;if(size>max)throw new AppError('file_too_large',pdf?'PDF limit is 25 MiB.':'Text solution limit is 1 MiB.',413);hash.update(part.value);await file.write(part.value);}await file.close();const fs=await import('node:fs/promises');const content=await fs.readFile(temp);if(!size)throw new AppError('empty_file','This file is empty.');if(pdf&&!content.subarray(0,5).equals(Buffer.from('%PDF-')))throw new AppError('invalid_pdf','This file is not a PDF.');if(!pdf){try{new TextDecoder('utf-8',{fatal:true}).decode(content);}catch{throw new AppError('invalid_text','Solutions must use UTF-8 text.');}}const digest=hash.digest('hex');const old=one<DocumentMeta>(db,'SELECT * FROM documents WHERE ownerId=? AND moduleId=? AND role=? AND hash=?','local',moduleId,role,digest);if(old){unlinkSync(temp);return old;}renameSync(temp,dest);const mime=pdf?'application/pdf':/\.md|\.markdown/i.test(input.name)?'text/markdown':'text/plain';const name=path.basename(input.name).slice(0,200);db.prepare('INSERT INTO documents VALUES(?,?,?,?,?,?,?,?,?,?)').run(id,'local',moduleId,digest,mime,role,id,name,size,new Date().toISOString());return getDocument(db,id);}catch(e){await file.close().catch(()=>{});await reader.cancel().catch(()=>{});for(const f of [temp,dest])if(existsSync(f))unlinkSync(f);throw e;}finally{reader.releaseLock();}}
-export const CreatePaperSchema=z.object({title:z.string().trim().min(1).max(180),questionDocumentId:z.string(),solutionDocumentId:z.string().optional(),solutionOrigin:z.enum(['official','external_ai']).optional()});
-export function createPaper(db:AppDb,moduleId:string,raw:z.infer<typeof CreatePaperSchema>):Paper{getModule(db,moduleId);const input=CreatePaperSchema.parse(raw);const q=getDocument(db,input.questionDocumentId);if(q.moduleId!==moduleId||q.role!=='question')throw new AppError('invalid_pair','Question paper must belong to this module.');if(input.solutionDocumentId){const a=getDocument(db,input.solutionDocumentId);if(a.moduleId!==moduleId||a.role!=='solution'||!input.solutionOrigin)throw new AppError('invalid_pair','Choose a solution file and its origin from this module.');}return db.transaction(()=>{const id=randomUUID();db.prepare('INSERT INTO papers VALUES(?,?,?,?,?,?,?,?,?,?)').run(id,'local',moduleId,input.title,q.id,input.solutionDocumentId||null,input.solutionOrigin||null,input.solutionDocumentId?'queued':'needs_solutions',null,new Date().toISOString());if(input.solutionDocumentId)enqueueJob(db,'ingest',`ingest:${id}`,{paperId:id});return getPaper(db,id);})();}
-export function attachSolution(db:AppDb,paperId:string,input:{documentId:string;origin:'official'|'external_ai'}){const p=getPaper(db,paperId);const a=getDocument(db,input.documentId);if(a.moduleId!==p.moduleId||a.role!=='solution')throw new AppError('invalid_pair','Choose a solution file from this module.');if(p.state!=='needs_solutions')throw new AppError('conflict','This paper already has solutions. Use repair to correct them.',409);return db.transaction(()=>{db.prepare('UPDATE papers SET solutionDocumentId=?,solutionOrigin=?,state=? WHERE id=?').run(a.id,z.enum(['official','external_ai']).parse(input.origin),'queued',paperId);return enqueueJob(db,'ingest',`ingest:${paperId}`,{paperId});})();}
-export function readSource(db:AppDb,documentId:string,mode:'question'|'review'|'attempt',attemptId?:string){const d=getDocument(db,documentId);if(d.role==='solution'&&mode==='question')throw new AppError('not_found','Source not available.',404);if(d.role==='solution'&&mode==='attempt'){const ok=one(db,`SELECT a.id FROM attempts a JOIN sessions s ON s.id=a.sessionId JOIN papers p ON p.id=s.paperId WHERE a.id=? AND p.solutionDocumentId=?`,attemptId,documentId);if(!ok)throw new AppError('not_found','Source not available.',404);}return {path:path.join(storageDir(db),d.storageKey),mime:d.mime,name:d.originalName};}
+import { randomUUID, createHash } from "node:crypto";
+import { mkdirSync, renameSync, unlinkSync, existsSync } from "node:fs";
+import { open } from "node:fs/promises";
+import path from "node:path";
+import { z } from "zod";
+import type { AppDb } from "../../server/db/client";
+import { one } from "../../server/db/queries";
+import { AppError, requireValue } from "../../server/errors";
+import { getModule } from "../library/service";
+import { enqueueJob } from "../jobs/service";
+export type DocumentMeta = {
+  id: string;
+  moduleId: string;
+  role: "question" | "solution";
+  originalName: string;
+  mime: string;
+  storageKey: string;
+  byteLength: number;
+};
+export type Paper = {
+  id: string;
+  moduleId: string;
+  title: string;
+  questionDocumentId: string;
+  solutionDocumentId: string | null;
+  solutionOrigin: "official" | "external_ai" | null;
+  state: string;
+  activeRevisionId: string | null;
+  createdAt: string;
+};
+export const storageDir = (db: AppDb) =>
+  path.join(path.dirname(db.name), "files");
+export function getDocument(db: AppDb, id: string) {
+  return requireValue(
+    one<DocumentMeta>(
+      db,
+      "SELECT * FROM documents WHERE id=? AND ownerId=?",
+      id,
+      "local",
+    ),
+  );
+}
+export function getPaper(db: AppDb, id: string) {
+  return requireValue(
+    one<Paper>(
+      db,
+      "SELECT * FROM papers WHERE id=? AND ownerId=?",
+      id,
+      "local",
+    ),
+  );
+}
+export async function saveDocument(
+  db: AppDb,
+  moduleId: string,
+  input: {
+    name: string;
+    mime: string;
+    role: "question" | "solution";
+    stream: ReadableStream<Uint8Array>;
+  },
+): Promise<DocumentMeta> {
+  getModule(db, moduleId);
+  const role = z.enum(["question", "solution"]).parse(input.role);
+  const pdf = /\.pdf$/i.test(input.name);
+  if (role === "question" && !pdf)
+    throw new AppError("unsupported_file", "Question papers must be PDFs.");
+  if (!pdf && !/\.(txt|md|markdown)$/i.test(input.name))
+    throw new AppError(
+      "unsupported_file",
+      "Use PDF, plain text, or Markdown solutions.",
+    );
+  const max = pdf ? 25 * 1024 * 1024 : 1024 * 1024;
+  mkdirSync(storageDir(db), { recursive: true });
+  const id = randomUUID(),
+    temp = path.join(storageDir(db), id + ".tmp"),
+    dest = path.join(storageDir(db), id);
+  let size = 0;
+  const hash = createHash("sha256");
+  const file = await open(temp, "wx");
+  const reader = input.stream.getReader();
+  try {
+    while (true) {
+      const part = await reader.read();
+      if (part.done) break;
+      size += part.value.length;
+      if (size > max)
+        throw new AppError(
+          "file_too_large",
+          pdf ? "PDF limit is 25 MiB." : "Text solution limit is 1 MiB.",
+          413,
+        );
+      hash.update(part.value);
+      await file.write(part.value);
+    }
+    await file.close();
+    const fs = await import("node:fs/promises");
+    const content = await fs.readFile(temp);
+    if (!size) throw new AppError("empty_file", "This file is empty.");
+    if (pdf && !content.subarray(0, 5).equals(Buffer.from("%PDF-")))
+      throw new AppError("invalid_pdf", "This file is not a PDF.");
+    if (!pdf) {
+      try {
+        new TextDecoder("utf-8", { fatal: true }).decode(content);
+      } catch {
+        throw new AppError("invalid_text", "Solutions must use UTF-8 text.");
+      }
+    }
+    const digest = hash.digest("hex");
+    const old = one<DocumentMeta>(
+      db,
+      "SELECT * FROM documents WHERE ownerId=? AND moduleId=? AND role=? AND hash=?",
+      "local",
+      moduleId,
+      role,
+      digest,
+    );
+    if (old) {
+      unlinkSync(temp);
+      return old;
+    }
+    renameSync(temp, dest);
+    const mime = pdf
+      ? "application/pdf"
+      : /\.md|\.markdown/i.test(input.name)
+        ? "text/markdown"
+        : "text/plain";
+    const name = path.basename(input.name).slice(0, 200);
+    db.prepare("INSERT INTO documents VALUES(?,?,?,?,?,?,?,?,?,?)").run(
+      id,
+      "local",
+      moduleId,
+      digest,
+      mime,
+      role,
+      id,
+      name,
+      size,
+      new Date().toISOString(),
+    );
+    return getDocument(db, id);
+  } catch (e) {
+    await file.close().catch(() => {});
+    await reader.cancel().catch(() => {});
+    for (const f of [temp, dest]) if (existsSync(f)) unlinkSync(f);
+    throw e;
+  } finally {
+    reader.releaseLock();
+  }
+}
+export const CreatePaperSchema = z.object({
+  title: z.string().trim().min(1).max(180),
+  questionDocumentId: z.string(),
+  solutionDocumentId: z.string().optional(),
+  solutionOrigin: z.enum(["official", "external_ai"]).optional(),
+});
+export function createPaper(
+  db: AppDb,
+  moduleId: string,
+  raw: z.infer<typeof CreatePaperSchema>,
+): Paper {
+  getModule(db, moduleId);
+  const input = CreatePaperSchema.parse(raw);
+  const q = getDocument(db, input.questionDocumentId);
+  if (q.moduleId !== moduleId || q.role !== "question")
+    throw new AppError(
+      "invalid_pair",
+      "Question paper must belong to this module.",
+    );
+  if (input.solutionDocumentId) {
+    const a = getDocument(db, input.solutionDocumentId);
+    if (
+      a.moduleId !== moduleId ||
+      a.role !== "solution" ||
+      !input.solutionOrigin
+    )
+      throw new AppError(
+        "invalid_pair",
+        "Choose a solution file and its origin from this module.",
+      );
+  }
+  return db.transaction(() => {
+    const id = randomUUID();
+    db.prepare("INSERT INTO papers VALUES(?,?,?,?,?,?,?,?,?,?)").run(
+      id,
+      "local",
+      moduleId,
+      input.title,
+      q.id,
+      input.solutionDocumentId || null,
+      input.solutionOrigin || null,
+      input.solutionDocumentId ? "queued" : "needs_solutions",
+      null,
+      new Date().toISOString(),
+    );
+    if (input.solutionDocumentId)
+      enqueueJob(db, "ingest", `ingest:${id}`, { paperId: id });
+    return getPaper(db, id);
+  })();
+}
+export function attachSolution(
+  db: AppDb,
+  paperId: string,
+  input: { documentId: string; origin: "official" | "external_ai" },
+) {
+  const p = getPaper(db, paperId);
+  const a = getDocument(db, input.documentId);
+  if (a.moduleId !== p.moduleId || a.role !== "solution")
+    throw new AppError(
+      "invalid_pair",
+      "Choose a solution file from this module.",
+    );
+  if (p.state !== "needs_solutions")
+    throw new AppError(
+      "conflict",
+      "This paper already has solutions. Use repair to correct them.",
+      409,
+    );
+  return db.transaction(() => {
+    db.prepare(
+      "UPDATE papers SET solutionDocumentId=?,solutionOrigin=?,state=? WHERE id=?",
+    ).run(
+      a.id,
+      z.enum(["official", "external_ai"]).parse(input.origin),
+      "queued",
+      paperId,
+    );
+    return enqueueJob(db, "ingest", `ingest:${paperId}`, { paperId });
+  })();
+}
+export function readSource(
+  db: AppDb,
+  documentId: string,
+  mode: "question" | "review" | "attempt",
+  attemptId?: string,
+) {
+  const d = getDocument(db, documentId);
+  if (d.role === "solution" && mode === "question")
+    throw new AppError("not_found", "Source not available.", 404);
+  if (d.role === "solution" && mode === "attempt") {
+    const ok = one(
+      db,
+      `SELECT a.id FROM attempts a JOIN sessions s ON s.id=a.sessionId JOIN papers p ON p.id=s.paperId WHERE a.id=? AND p.solutionDocumentId=?`,
+      attemptId,
+      documentId,
+    );
+    if (!ok) throw new AppError("not_found", "Source not available.", 404);
+  }
+  return {
+    path: path.join(storageDir(db), d.storageKey),
+    mime: d.mime,
+    name: d.originalName,
+  };
+}

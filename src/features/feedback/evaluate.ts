@@ -1,3 +1,60 @@
-import {AssessmentSchema,type Feedback} from '../../domain/feedback';import type {Question,ReferenceAnswer,PreparedExplanation} from '../../domain/questions';import type {StudentResponse} from '../../domain/practice';import {AppError} from '../../server/errors';
-export type EvaluationInput={question:Question;answer:ReferenceAnswer;response:StudentResponse;prepared:PreparedExplanation};
-export function validateAssessment(raw:unknown,input:EvaluationInput):Feedback{const a=AssessmentSchema.parse(raw);if(input.response.kind!=='written')throw new AppError('invalid_response','Written evaluation needs a typed answer.');for(const issue of a.issues){if(issue.evidence&&!input.response.text.includes(issue.evidence))throw new AppError('invalid_assessment','The feedback cited text not present in your answer.',500,true);if(issue.criterionId&&!input.answer.rubric?.some(c=>c.id===issue.criterionId))throw new AppError('invalid_assessment','The feedback used an unknown rubric criterion.',500,true);}if(a.score){const max=input.answer.rubric?.reduce((s,c)=>s+c.maxMarks,0);if(max===undefined||a.score.possible!==max||a.score.earned<0||a.score.earned>max)throw new AppError('invalid_score','Assessment score did not match the reference rubric.',500,true);}return {...a,provisional:true,reference:input.answer};}
+import { AssessmentSchema, type Feedback } from "../../domain/feedback";
+import type {
+  Question,
+  ReferenceAnswer,
+  PreparedExplanation,
+} from "../../domain/questions";
+import type { StudentResponse } from "../../domain/practice";
+import { AppError } from "../../server/errors";
+export type EvaluationInput = {
+  question: Question;
+  answer: ReferenceAnswer;
+  response: StudentResponse;
+  prepared: PreparedExplanation;
+};
+export function validateAssessment(
+  raw: unknown,
+  input: EvaluationInput,
+): Feedback {
+  const a = AssessmentSchema.parse(raw);
+  if (input.response.kind !== "written")
+    throw new AppError(
+      "invalid_response",
+      "Written evaluation needs a typed answer.",
+    );
+  for (const issue of a.issues) {
+    if (issue.evidence && !input.response.text.includes(issue.evidence))
+      throw new AppError(
+        "invalid_assessment",
+        "The feedback cited text not present in your answer.",
+        500,
+        true,
+      );
+    if (
+      issue.criterionId &&
+      !input.answer.rubric?.some((c) => c.id === issue.criterionId)
+    )
+      throw new AppError(
+        "invalid_assessment",
+        "The feedback used an unknown rubric criterion.",
+        500,
+        true,
+      );
+  }
+  if (a.score) {
+    const max = input.answer.rubric?.reduce((s, c) => s + c.maxMarks, 0);
+    if (
+      max === undefined ||
+      a.score.possible !== max ||
+      a.score.earned < 0 ||
+      a.score.earned > max
+    )
+      throw new AppError(
+        "invalid_score",
+        "Assessment score did not match the reference rubric.",
+        500,
+        true,
+      );
+  }
+  return { ...a, provisional: true, reference: input.answer };
+}

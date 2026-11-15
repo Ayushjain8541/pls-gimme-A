@@ -1,2 +1,25 @@
-import type {AppDb} from '../../server/db/client';import {getSession} from './service';
-export function getSummary(db:AppDb,sessionId:string){const s=getSession(db,sessionId);const results=s.questions.filter(q=>!q.excluded&&q.attempt?.feedback).map(q=>({number:q.number,attemptId:q.attempt!.id,verdict:q.attempt!.feedback!.verdict,provisional:q.attempt!.feedback!.provisional}));return {sessionId:s.id,paperId:s.paperId,title:s.title,moduleId:s.moduleId,progress:s.progress,results,excluded:s.questions.filter(q=>q.excluded).map(q=>q.number),skipped:s.questions.filter(q=>q.skipReason&&!q.excluded&&!q.attempt).map(q=>q.number)};}
+import type { AppDb } from "../../server/db/client";
+import { getSession } from "./service";
+export function getSummary(db: AppDb, sessionId: string) {
+  const s = getSession(db, sessionId);
+  const results = s.questions
+    .filter((q) => !q.excluded && q.attempt?.feedback)
+    .map((q) => ({
+      number: q.number,
+      attemptId: q.attempt!.id,
+      verdict: q.attempt!.feedback!.verdict,
+      provisional: q.attempt!.feedback!.provisional,
+    }));
+  return {
+    sessionId: s.id,
+    paperId: s.paperId,
+    title: s.title,
+    moduleId: s.moduleId,
+    progress: s.progress,
+    results,
+    excluded: s.questions.filter((q) => q.excluded).map((q) => q.number),
+    skipped: s.questions
+      .filter((q) => q.skipReason && !q.excluded && !q.attempt)
+      .map((q) => q.number),
+  };
+}

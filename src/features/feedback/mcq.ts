@@ -1,5 +1,41 @@
-import type {Question,ReferenceAnswer,PreparedExplanation} from '../../domain/questions';
-import type {StudentResponse} from '../../domain/practice';
-import type {Feedback} from '../../domain/feedback';
-import {AppError} from '../../server/errors';
-export function gradeMcq(q:Question,response:StudentResponse,a:ReferenceAnswer,e:PreparedExplanation):Feedback{if(response.kind!=='selection'||!a.correctOptionIds||response.optionIds.some(id=>!q.options.some(o=>o.id===id))||new Set(response.optionIds).size!==response.optionIds.length||(q.kind==='single_select'&&response.optionIds.length!==1))throw new AppError('invalid_response','Choose valid answer options.');const correct=response.optionIds.length===a.correctOptionIds.length&&response.optionIds.every(id=>a.correctOptionIds!.includes(id));return {verdict:correct?'correct':'incorrect',provisional:a.origin!=='official',strengths:[],issues:[],worked:[...response.optionIds.flatMap(id=>e.byOption[id]||[]),...e.worked],score:q.marks===null?null:{earned:correct?q.marks:0,possible:q.marks},reference:a};}
+import type {
+  Question,
+  ReferenceAnswer,
+  PreparedExplanation,
+} from "../../domain/questions";
+import type { StudentResponse } from "../../domain/practice";
+import type { Feedback } from "../../domain/feedback";
+import { AppError } from "../../server/errors";
+export function gradeMcq(
+  q: Question,
+  response: StudentResponse,
+  a: ReferenceAnswer,
+  e: PreparedExplanation,
+): Feedback {
+  if (
+    response.kind !== "selection" ||
+    !a.correctOptionIds ||
+    response.optionIds.some((id) => !q.options.some((o) => o.id === id)) ||
+    new Set(response.optionIds).size !== response.optionIds.length ||
+    (q.kind === "single_select" && response.optionIds.length !== 1)
+  )
+    throw new AppError("invalid_response", "Choose valid answer options.");
+  const correct =
+    response.optionIds.length === a.correctOptionIds.length &&
+    response.optionIds.every((id) => a.correctOptionIds!.includes(id));
+  return {
+    verdict: correct ? "correct" : "incorrect",
+    provisional: a.origin !== "official",
+    strengths: [],
+    issues: [],
+    worked: [
+      ...response.optionIds.flatMap((id) => e.byOption[id] || []),
+      ...e.worked,
+    ],
+    score:
+      q.marks === null
+        ? null
+        : { earned: correct ? q.marks : 0, possible: q.marks },
+    reference: a,
+  };
+}
