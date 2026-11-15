@@ -162,3 +162,39 @@ test("clearing a saved typed draft remains cleared when revisiting the question"
   await page.getByRole("button", { name: "Next question" }).click();
   await expect(page.getByLabel("Your answer")).toHaveValue("");
 });
+
+test("an idle second tab adopts the saved answer together with its new draft version", async ({
+  page,
+  request,
+  context,
+}) => {
+  const m = await moduleFolder(request);
+  await uploadPaper(page, m.id, pdf("Two tab draft synchronization"), true);
+  await expect(page.getByText("Ready", { exact: true })).toBeVisible({
+    timeout: 30000,
+  });
+  await page.getByRole("link", { name: "Start practice" }).click();
+  await page.getByRole("button", { name: "Next question" }).click();
+  const firstSave = page.waitForResponse(
+    (r) => r.request().method() === "PUT" && r.url().includes("/items/"),
+  );
+  await page.getByLabel("Your answer").fill("Original reasoning");
+  await firstSave;
+  const second = await context.newPage();
+  await second.goto(page.url());
+  await expect(second.getByLabel("Your answer")).toHaveValue(
+    "Original reasoning",
+  );
+  const changed = page.waitForResponse(
+    (r) => r.request().method() === "PUT" && r.url().includes("/items/"),
+  );
+  await page
+    .getByLabel("Your answer")
+    .fill("Original reasoning with the missing important step.");
+  await changed;
+  await expect(second.getByLabel("Your answer")).toHaveValue(
+    "Original reasoning with the missing important step.",
+    { timeout: 10000 },
+  );
+  await second.close();
+});

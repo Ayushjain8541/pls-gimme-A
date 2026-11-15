@@ -225,9 +225,18 @@ function QuestionPanel({
     };
   }, []);
   useEffect(() => {
-    if (!dirty.current && q.draftVersion > version.current)
+    if (!dirty.current && q.draftVersion > version.current) {
+      const incoming: StudentResponse =
+        q.draft ||
+        q.attempt?.response ||
+        (q.kind.includes("select")
+          ? { kind: "selection", optionIds: [] }
+          : { kind: "written", text: "" });
+      responseRef.current = incoming;
+      setResponse(incoming);
       version.current = q.draftVersion;
-  }, [q.draftVersion]);
+    }
+  }, [q.draftVersion, q.draft, q.attempt?.response, q.kind]);
   const save = useCallback(
     async (extra: Record<string, unknown> = {}) => {
       if (timer.current) clearTimeout(timer.current);
