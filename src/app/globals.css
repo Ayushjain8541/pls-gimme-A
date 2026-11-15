@@ -949,10 +949,9 @@ input[type="checkbox"] {
 .papers-header,
 .paper-row {
   display: grid;
-  grid-template-columns: minmax(180px, 2fr) minmax(95px, 1fr) minmax(
-      100px,
-      1fr
-    ) minmax(115px, 1fr);
+  grid-template-columns:
+    minmax(180px, 2fr) minmax(95px, 1fr) minmax(100px, 1fr)
+    minmax(115px, 1fr);
   align-items: center;
   gap: 20px;
 }
@@ -1821,4 +1820,89 @@ input[type="checkbox"] {
     transition: none !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* Files are accumulated across chooser visits and drops; the list is the selection. */
+.file-drop {
+  min-width: 0;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+.file-drop.drag-over {
+  border-color: var(--green);
+  background: #e8f1e1;
+  box-shadow: 0 0 0 2px #35654d1a;
+}
+.file-drop .file-picker-input {
+  display: none;
+}
+.file-picker-heading {
+  display: block;
+  font-size: 11px;
+  font-weight: 550;
+  color: #657652;
+  margin-bottom: 12px;
+}
+.file-drop .file-drop-hint {
+  margin: 8px 0 4px;
+  font-size: 10px;
+}
+.file-drop .file-selection-count {
+  margin-top: 10px;
+  color: #798e65;
+  font-size: 10px;
+}
+.selected-files {
+  list-style: none;
+  margin: 13px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  max-height: 250px;
+  overflow-y: auto;
+  text-align: left;
+}
+.selected-file {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 8px;
+  border: 1px solid #e0e6d7;
+  border-radius: 6px;
+  background: #fffefb;
+  color: #8b9d77;
+  min-width: 0;
+  flex-shrink: 0;
+}
+.selected-file-details {
+  min-width: 0;
+  flex: 1;
+}
+.selected-file-details a {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: #647b51;
+  overflow-wrap: anywhere;
+}
+.selected-file-details a:hover {
+  text-decoration: underline;
+}
+.selected-file-details small {
+  display: block;
+  font-size: 8px;
+  color: #a0ad91;
+  margin-top: 4px;
+}
+.selected-file .icon-button {
+  flex-shrink: 0;
+}
+.file-drop .file-selection-error {
+  font-size: 10px !important;
+  text-align: left;
+  overflow-wrap: anywhere;
 }

@@ -1,9 +1,11 @@
 "use client";
 import { useState, useRef } from "react";
-import { X, Upload, FileText, ArrowRight, Check } from "lucide-react";
+import { X, Upload, ArrowRight, Check } from "lucide-react";
 import { post } from "@/components/api";
 import type { DocumentMeta } from "@/features/documents/service";
 import type { PairingProposal } from "./service";
+import { FilePicker } from "./file-picker";
+import { fileKey } from "./file-selection";
 export function uploadFile(
   moduleId: string,
   file: File,
@@ -68,7 +70,7 @@ export function BatchUpload({
         ["solution", solutions],
       ] as const) {
         for (const file of files) {
-          const key = `${role}:${file.name}:${file.size}:${file.lastModified}`;
+          const key = `${role}:${fileKey(file)}`;
           let doc = uploaded.current.get(key);
           if (!doc) {
             doc = await uploadFile(moduleId, file, role, (pct) =>
@@ -141,40 +143,22 @@ export function BatchUpload({
         {!pairs ? (
           <>
             <div className="upload-grid">
-              <div className="file-drop">
-                <Upload size={24} />
-                <label>
-                  Question papers
-                  <input
-                    aria-label="Question papers"
-                    type="file"
-                    multiple
-                    accept=".pdf"
-                    onChange={(e) =>
-                      setQuestions(Array.from(e.target.files || []))
-                    }
-                  />
-                </label>
-                <p>PDF · Up to 25 MiB each</p>
-                <p>{questions.length ? `${questions.length} selected` : ""}</p>
-              </div>
-              <div className="file-drop">
-                <FileText size={24} />
-                <label>
-                  Solution files
-                  <input
-                    aria-label="Solution files"
-                    type="file"
-                    multiple
-                    accept=".pdf,.md,.txt,.markdown"
-                    onChange={(e) =>
-                      setSolutions(Array.from(e.target.files || []))
-                    }
-                  />
-                </label>
-                <p>PDF, Markdown, or text · Optional</p>
-                <p>{solutions.length ? `${solutions.length} selected` : ""}</p>
-              </div>
+              <FilePicker
+                role="question"
+                label="Question papers"
+                files={questions}
+                onChange={setQuestions}
+                disabled={busy}
+                capacity={40 - solutions.length}
+              />
+              <FilePicker
+                role="solution"
+                label="Solution files"
+                files={solutions}
+                onChange={setSolutions}
+                disabled={busy}
+                capacity={40 - questions.length}
+              />
             </div>
             <div className="notice">
               Missing some solutions? You can add those papers now and attach
