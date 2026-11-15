@@ -2,7 +2,7 @@ import { test, expect } from "vitest";
 import { writeFileSync } from "node:fs";
 import path from "node:path";
 import type { z } from "zod";
-import type { ResponseInput } from "openai/resources/responses/responses";
+import type { AiInput } from "../../src/server/ai/gateway";
 import { readyPaper } from "../fixtures/ready-paper";
 import { FixtureAi } from "../fixtures/ai";
 import { fixtureRevision } from "../fixtures/paper";
@@ -47,7 +47,7 @@ test("figure evidence reaches explanation, written assessment and follow-up mode
       schema: z.ZodType<T>,
       name: string,
       instructions: string,
-      input: ResponseInput,
+      input: AiInput,
       task: "INGEST" | "FEEDBACK" | "CHAT",
     ) {
       if (

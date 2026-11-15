@@ -1,18 +1,18 @@
 import { test, expect } from "vitest";
-import { zodTextFormat } from "openai/helpers/zod";
+import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import {
   QuestionsOutput,
   SolutionsOutput,
   ExplanationsOutput,
 } from "../../src/features/ingestion/pipeline";
 import { AssessmentSchema } from "../../src/domain/feedback";
-test("ingestion and evaluation schemas can be sent as strict OpenAI structured outputs", () => {
-  for (const [name, schema] of [
-    ["questions", QuestionsOutput],
-    ["solutions", SolutionsOutput],
-    ["assessment", AssessmentSchema],
-    ["explanations", ExplanationsOutput],
+test("ingestion and evaluation schemas can be sent as Claude structured outputs", () => {
+  for (const schema of [
+    QuestionsOutput,
+    SolutionsOutput,
+    AssessmentSchema,
+    ExplanationsOutput,
   ] as const) {
-    expect(() => zodTextFormat(schema, name)).not.toThrow();
+    expect(() => zodOutputFormat(schema)).not.toThrow();
   }
 });

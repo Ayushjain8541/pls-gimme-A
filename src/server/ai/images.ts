@@ -1,15 +1,12 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import type {
-  ResponseInput,
-  ResponseInputContent,
-} from "openai/resources/responses/responses";
+import type { AiInput, AiInputContent } from "./gateway";
 import type { AppDb } from "../db/client";
 import { one } from "../db/queries";
 import { AppError, requireValue } from "../errors";
 import { storageDir } from "../../features/documents/service";
 /** Attach only referenced local assets, with labels matching the structured content. */
-export function visualInputs(db: AppDb, value: unknown): ResponseInput {
+export function visualInputs(db: AppDb, value: unknown): AiInput {
   const ids = new Set<string>();
   function walk(node: unknown) {
     if (Array.isArray(node)) node.forEach(walk);
@@ -22,7 +19,7 @@ export function visualInputs(db: AppDb, value: unknown): ResponseInput {
   }
   walk(value);
   if (!ids.size) return [];
-  const content: ResponseInputContent[] = [];
+  const content: AiInputContent[] = [];
   let total = 0;
   for (const id of ids) {
     const a = requireValue(

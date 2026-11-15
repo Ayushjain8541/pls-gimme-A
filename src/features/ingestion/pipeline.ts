@@ -1,10 +1,7 @@
 import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { z } from "zod";
-import type {
-  ResponseInput,
-  ResponseInputContent,
-} from "openai/resources/responses/responses";
+import type { AiInput, AiInputContent } from "../../server/ai/gateway";
 import type { AppDb } from "../../server/db/client";
 import type { AiGateway } from "../../server/ai/gateway";
 import {
@@ -61,8 +58,8 @@ export const ExplanationsOutput = z.object({
     }),
   ),
 });
-function pageInput(documentId: string, pages: ExtractedPage[]): ResponseInput {
-  const content: ResponseInputContent[] = [];
+function pageInput(documentId: string, pages: ExtractedPage[]): AiInput {
+  const content: AiInputContent[] = [];
   for (const page of pages) {
     content.push({
       type: "input_text",

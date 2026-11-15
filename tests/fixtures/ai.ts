@@ -1,5 +1,5 @@
 import type { z } from "zod";
-import type { ResponseInput } from "openai/resources/responses/responses";
+import type { AiInput } from "../../src/server/ai/gateway";
 import type { AiGateway } from "../../src/server/ai/gateway";
 import { fixtureRevision } from "./paper";
 export class FixtureAi implements AiGateway {
@@ -7,7 +7,7 @@ export class FixtureAi implements AiGateway {
     schema: z.ZodType<T>,
     name: string,
     _instructions: string,
-    input: ResponseInput,
+    input: AiInput,
   ): Promise<T> {
     const r = fixtureRevision();
     if (name === "paper_questions") {

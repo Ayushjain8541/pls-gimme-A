@@ -5,7 +5,7 @@ import { setTimeout as pause } from "node:timers/promises";
 import { openDb } from "../src/server/db/client";
 import { listModules, createModule } from "../src/features/library/service";
 import { saveDocument, createPaper } from "../src/features/documents/service";
-import { OpenAiGateway } from "../src/server/ai/openai";
+import { AnthropicGateway } from "../src/server/ai/anthropic";
 import { runNextJob } from "../src/worker/runner";
 import { aiConfigured } from "../src/server/config";
 import { getPaper } from "../src/features/documents/service";
@@ -27,7 +27,7 @@ if (
   );
 if (!aiConfigured())
   throw new Error(
-    "Configure your API key and model IDs in .env.local before running live verification.",
+    "Set ANTHROPIC_API_KEY in .env.local before running live verification.",
   );
 const db = openDb();
 try {
@@ -56,7 +56,7 @@ try {
     solutionDocumentId: docs[1].id,
     solutionOrigin: values.origin as "official" | "external_ai",
   });
-  const ai = new OpenAiGateway(),
+  const ai = new AnthropicGateway(),
     until = Date.now() + 10 * 60000;
   while (Date.now() < until) {
     const current = getPaper(db, p.id);

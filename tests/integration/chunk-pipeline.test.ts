@@ -3,7 +3,7 @@ import { mkdtempSync, readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import type { z } from "zod";
-import type { ResponseInput } from "openai/resources/responses/responses";
+import type { AiInput } from "../../src/server/ai/gateway";
 import { openDb } from "../../src/server/db/client";
 import { createModule } from "../../src/features/library/service";
 import {
@@ -51,7 +51,7 @@ test("five-page conversion retains page-five question figures and completed refe
       schema: z.ZodType<T>,
       name: string,
       instructions: string,
-      input: ResponseInput,
+      input: AiInput,
       task: "INGEST" | "FEEDBACK" | "CHAT",
     ) {
       if (name === "paper_questions" || name === "paper_solutions") {

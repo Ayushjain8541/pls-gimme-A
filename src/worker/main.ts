@@ -1,9 +1,9 @@
 import { setTimeout as pause } from "node:timers/promises";
 import { getDb } from "../server/db/client";
-import { OpenAiGateway } from "../server/ai/openai";
+import { AnthropicGateway } from "../server/ai/anthropic";
 import { runNextJob } from "./runner";
 const db = getDb(),
-  ai = new OpenAiGateway();
+  ai = new AnthropicGateway();
 console.log("Paper worker is running.");
 let running = true;
 process.on("SIGTERM", () => {
