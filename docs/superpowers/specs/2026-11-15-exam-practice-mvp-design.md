@@ -1,7 +1,7 @@
 # Exam practice MVP design
 
 Date: 2026-11-15 (Asia/Singapore)
-Status: Draft for user approval; approach selected, implementation not started.
+Status: Approved by the user on 2026-11-15; implementation planning authorized, implementation not started.
 
 ## Intent and success
 
@@ -22,8 +22,10 @@ Confirmed by the user:
 - Typed responses suffice initially. Questions needing drawn answers can be skipped or excluded.
 - The chosen approach is a structured paper player with AI feedback, starting with one paper end to end before batch uploads.
 - No browser mockups are wanted during this design discussion.
+- Uploads happen inside a module folder selected by the student (for example CS2100 or CS2103); automatic module sorting is not required.
+- Each module lists its papers with not-started, in-progress, and completed states and question-level progress.
 
-The remaining choices below are the assistant's proposals for approval, not prior user commitments.
+The remaining choices below originated as assistant proposals and were included in the approved design.
 
 ## Approaches
 
@@ -66,7 +68,7 @@ Failures even if the app technically works:
 
 This is a project requiring a full design and implementation plan. Build the complete loop for one paper first; then expand the same pipeline to batches. The first delivery is a personal-use web app with saved data on a persistent local backend, not a public multi-user service. This is an assistant proposal intended to avoid authentication and deployment work obscuring the learning loop. Keep user ownership explicit in stored records so a hosted version can follow. AI processing requires internet access and configured server-side provider credentials; no offline AI is promised.
 
-Use this existing Git workspace for design artifacts. It currently has no commits or configured remote. The provided GitHub repository is the intended eventual destination; connecting or publishing it is separate from approving this design. Do not create a second project directory during brainstorming.
+Use this existing Git workspace for design artifacts and implementation. At initial inspection it had no commits or configured remote; design artifacts are now committed. The provided GitHub repository is the intended eventual destination; connecting or publishing it is separate from approving this design. Do not create a second project directory during brainstorming.
 
 ## Paper preparation
 
@@ -123,7 +125,7 @@ Corrections create a new content revision. Completed attempts retain their origi
 
 ## Screen responsibilities
 
-- Library/module view: folders, papers, preparation state, and practice progress.
+- Library/module view: folders, papers, preparation state, and practice progress. Open a module before uploading; uploads inherit that module, with no automatic module classification. Show not started, in progress, or completed, plus submitted/total included question counts for the latest session.
 - Upload/preparation view: files, solution origin, missing-solution prompt, and processing progress.
 - Review view: extracted questions/solutions, source-page access, corrections, and exclusions.
 - Player: one item, required context, answer controls, feedback, source access, follow-up questions, and navigation.
@@ -149,4 +151,4 @@ The builder chooses exact schema names, API boundaries, components, parsing/mode
 
 Particular assistant proposals to review: personal-use local delivery first; PDF-first document support with text/Markdown solutions; no feedback practice until solutions are attached; a compact follow-up chat in the first usable loop; and the explicit exclusion/completion rules.
 
-After user approval, create the detailed implementation plan before product code or scaffolding.
+User approval received. Next create the detailed implementation plan before product code or scaffolding.
