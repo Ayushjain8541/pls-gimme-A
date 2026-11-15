@@ -77,3 +77,20 @@ test("informational extraction notes are retained without blocking a complete pa
   expect(validated.ok).toBe(true);
   expect(validated).toMatchObject({ revision: { notes: content.notes } });
 });
+
+test("a complete but cautious AI explanation does not invalidate an intact official question and key", () => {
+  const r = fixtureRevision();
+  r.explanations[0].status = "needs_review";
+  expect(validateRevision(r, true).ok).toBe(true);
+  const feedback = gradeMcq(
+    r.questions[0],
+    { kind: "selection", optionIds: ["B"] },
+    r.answers[0],
+    r.explanations[0],
+  );
+  expect(feedback.verdict).toBe("incorrect");
+  expect(feedback).toMatchObject({ explanationNeedsReview: true });
+  const missing = fixtureRevision();
+  missing.explanations = [];
+  expect(validateRevision(missing, true).ok).toBe(false);
+});

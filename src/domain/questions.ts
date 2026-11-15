@@ -94,7 +94,6 @@ export function validateRevision(input: unknown, requireExplanations = false) {
       const e = r.explanations.find((e) => e.questionId === q.id);
       if (
         !e ||
-        e.status !== "ready" ||
         (q.kind.includes("select") &&
           q.options.some((o) => !e.byOption[o.id]?.length))
       )

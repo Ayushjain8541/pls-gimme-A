@@ -634,6 +634,12 @@ function FeedbackPanel({
       <div className="feedback-label">
         THE EXPLANATION <span>· AI-generated</span>
       </div>
+      {f.explanationNeedsReview && (
+        <p className="muted">
+          This AI explanation needs checking. Compare it with the reference
+          answer below.
+        </p>
+      )}
       <div data-testid="feedback-explanation">
         <RichContent blocks={f.worked} attemptId={attempt.id} />
       </div>

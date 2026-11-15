@@ -22,5 +22,6 @@ export const AssessmentSchema = z.object({
 export type Assessment = z.infer<typeof AssessmentSchema>;
 export type Feedback = Assessment & {
   provisional: boolean;
+  explanationNeedsReview?: boolean;
   reference: ReferenceAnswer;
 };

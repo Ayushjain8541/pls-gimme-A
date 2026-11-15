@@ -26,6 +26,7 @@ export function gradeMcq(
   return {
     verdict: correct ? "correct" : "incorrect",
     provisional: a.origin !== "official",
+    explanationNeedsReview: e.status === "needs_review",
     strengths: [],
     issues: [],
     worked: [
