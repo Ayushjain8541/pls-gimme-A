@@ -202,3 +202,30 @@ test("legacy PDF repair cannot clear explanations or trigger paid regeneration o
   expect(db.prepare("SELECT COUNT(*) n FROM jobs").get()).toEqual({ n: 0 });
   db.close();
 });
+
+test("downloadable prompt examples import all supported response shapes without PDFs or provider jobs", async () => {
+  const { db, mod } = setup();
+  const exampleResponse = await handleRequest(
+    new Request("http://127.0.0.1/api/import-format?download=example"),
+    db,
+  );
+  const example = await exampleResponse.json();
+  const response = await handleRequest(
+    request(`/modules/${mod.id}/json-import/confirm`, {
+      text: JSON.stringify(example),
+    }),
+    db,
+  );
+  expect(response.status).toBe(201);
+  const paper = await response.json();
+  const session = await (
+    await handleRequest(request(`/papers/${paper.id}/sessions`, {}), db)
+  ).json();
+  expect(session.questions.map((q: { kind: string }) => q.kind).sort()).toEqual(
+    ["multi_select", "single_select", "unsupported", "written"],
+  );
+  expect(session.progress.included).toBe(3);
+  expect(session.progress.excluded).toBe(1);
+  expect(db.prepare("SELECT COUNT(*) n FROM jobs").get()).toEqual({ n: 0 });
+  db.close();
+});
