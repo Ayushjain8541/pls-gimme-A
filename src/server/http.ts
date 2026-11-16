@@ -50,9 +50,9 @@ export function errorResponse(e: unknown) {
     { status: 500 },
   );
 }
-export async function readJson(req: Request) {
+export async function readJson(req: Request, maxBytes = 2 * 1024 * 1024) {
   const text = await req.text();
-  if (text.length > 2 * 1024 * 1024)
+  if (Buffer.byteLength(text) > maxBytes)
     throw new AppError("too_large", "This request is too large.", 413);
   try {
     return JSON.parse(text);

@@ -7,6 +7,12 @@ import { VERSION } from "../../server/ai/prompts";
 /** Retry conversion from the stored originals, preserving all prior revisions/attempts. */
 export function reprocessPaper(db: AppDb, paperId: string) {
   const paper = getPaper(db, paperId);
+  if (one(db, "SELECT paperId FROM jsonImports WHERE paperId=?", paperId))
+    throw new AppError(
+      "json_import",
+      "This paper was imported from JSON. Import a corrected JSON file instead of running PDF conversion.",
+      409,
+    );
   if (!paper.solutionDocumentId)
     throw new AppError("needs_solutions", "Attach a solution file first.", 409);
   return db.transaction(() => {

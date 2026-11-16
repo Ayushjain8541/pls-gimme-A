@@ -13,7 +13,8 @@ import {
 } from "../../domain/practice";
 import type { Feedback } from "../../domain/feedback";
 import { gradeMcq } from "../feedback/mcq";
-import { enqueueJob } from "../jobs/service";
+import { enqueueJob, retryJob } from "../jobs/service";
+import { aiConfigured } from "../../server/config";
 export type Session = {
   id: string;
   paperId: string;
@@ -259,7 +260,18 @@ export function submitAttempt(
       e = requireValue(r.explanations.find((e) => e.questionId === q.id));
     const feedback = q.kind.includes("select")
       ? gradeMcq(q, input.response, a, e)
-      : null;
+      : one(db, "SELECT paperId FROM jsonImports WHERE paperId=?", s.paperId)
+        ? {
+            assessmentMode: "self_review" as const,
+            verdict: "unable_to_assess" as const,
+            provisional: true,
+            strengths: [],
+            issues: [],
+            worked: e.worked,
+            score: null,
+            reference: a,
+          }
+        : null;
     const id = randomUUID();
     db.prepare(
       "INSERT INTO attempts(id,sessionId,questionId,requestId,responseJson,status,feedbackJson,createdAt) VALUES(?,?,?,?,?,?,?,?)",
@@ -300,4 +312,40 @@ export function attemptContext(db: AppDb, attemptId: string) {
     ),
     response: attempt.response,
   };
+}
+
+/** JSON imports always reveal written references locally; paid assessment is explicit. */
+export function requestAiAssessment(db: AppDb, attemptId: string) {
+  const attempt = getAttempt(db, attemptId),
+    session = getSessionRow(db, attempt.sessionId);
+  if (
+    attempt.response.kind !== "written" ||
+    !one(db, "SELECT paperId FROM jsonImports WHERE paperId=?", session.paperId)
+  )
+    throw new AppError(
+      "invalid_assessment",
+      "Optional assessment is available for imported written answers.",
+      409,
+    );
+  if (
+    attempt.status === "succeeded" &&
+    attempt.feedback?.assessmentMode !== "self_review"
+  )
+    return attempt;
+  if (!aiConfigured())
+    throw new AppError(
+      "ai_setup_required",
+      "Optional AI assessment needs ANTHROPIC_API_KEY. Your answer and reference are already available for self-review.",
+      503,
+    );
+  return db.transaction(() => {
+    const job = enqueueJob(db, "evaluate", `evaluate:${attemptId}`, {
+      attemptId,
+    });
+    if (job.status === "failed") retryJob(db, job.id);
+    db.prepare("UPDATE attempts SET status='pending' WHERE id=?").run(
+      attemptId,
+    );
+    return getAttempt(db, attemptId);
+  })();
 }

@@ -36,6 +36,7 @@ import {
   saveItem,
   submitAttempt,
   getAttempt,
+  requestAiAssessment,
 } from "../features/practice/service";
 import { getSummary } from "../features/practice/summary";
 import {
@@ -44,6 +45,16 @@ import {
   flagDisputed,
 } from "../features/followup/service";
 import { reprocessPaper } from "../features/ingestion/reprocess";
+import {
+  prepareJsonImport,
+  importJsonPaper,
+  isJsonPaper,
+} from "../features/json-import/service";
+import {
+  conversionPrompt,
+  formatExample,
+  portableJsonSchema,
+} from "../features/json-import/contract";
 const json = (data: unknown, status = 200) =>
   Response.json(data, { status, headers: { "Cache-Control": "no-store" } });
 export async function handleRequest(
@@ -59,6 +70,29 @@ export async function handleRequest(
     const body = () => readJson(req);
     if (p[0] === "status" && method === "GET")
       return json({ aiConfigured: aiConfigured() });
+    if (p[0] === "import-format" && method === "GET") {
+      const download = url.searchParams.get("download");
+      if (download && ["prompt", "example", "schema"].includes(download))
+        return new Response(
+          download === "prompt"
+            ? conversionPrompt
+            : JSON.stringify(
+                download === "schema" ? portableJsonSchema : formatExample,
+                null,
+                2,
+              ),
+          {
+            headers: {
+              "Content-Type":
+                download === "prompt"
+                  ? "text/plain; charset=utf-8"
+                  : "application/json",
+              "Content-Disposition": `attachment; filename="gimme-a-${download}.${download === "prompt" ? "txt" : "json"}"`,
+            },
+          },
+        );
+      return json({ prompt: conversionPrompt, example: formatExample });
+    }
     if (p[0] === "modules") {
       if (p.length === 1) {
         if (method === "GET") return json(listModules(db));
@@ -67,6 +101,23 @@ export async function handleRequest(
       const moduleId = p[1];
       if (p.length === 2 && method === "GET")
         return json(getModule(db, moduleId));
+      if (p[2] === "json-import" && method === "POST") {
+        const input = await readJson(req, 12 * 1024 * 1024);
+        if (p[3] === "validate") {
+          const result = await prepareJsonImport(db, moduleId, input);
+          return json(
+            result.ok ? { ok: true, summary: result.summary } : result,
+            result.ok ? 200 : 422,
+          );
+        }
+        if (p[3] === "confirm") {
+          const result = await importJsonPaper(db, moduleId, input);
+          return json(
+            result.ok ? result.paper : result,
+            result.ok ? (result.reused ? 200 : 201) : 422,
+          );
+        }
+      }
       if (p[2] === "papers") {
         if (method === "GET") return json(listPapers(db, moduleId));
         if (method === "POST")
@@ -139,6 +190,7 @@ export async function handleRequest(
             revision: getLatestRevision(db, id),
             assets: assetManifest(db, id),
             paper,
+            importedJson: isJsonPaper(db, id),
           });
         if (method === "PUT") {
           const input = z
@@ -179,6 +231,15 @@ export async function handleRequest(
         const valid = validateRevision(r.content);
         if (!valid.ok)
           throw new AppError("needs_review", valid.issues.join("\n"), 409);
+        if (isJsonPaper(db, id)) {
+          const ready = validateRevision(r.content, true);
+          if (!ready.ok)
+            throw new AppError("needs_review", ready.issues.join("\n"), 409);
+          const { publishRevision } =
+            await import("../features/review/repository");
+          publishRevision(db, id, r.id, r.version);
+          return json({ published: true });
+        }
         const j = enqueueJob(db, "ingest", `publish:${r.id}:${r.version}`, {
           paperId: id,
           draftId: r.id,
@@ -201,6 +262,8 @@ export async function handleRequest(
     if (p[0] === "attempts") {
       const id = p[1];
       if (p.length === 2 && method === "GET") return json(getAttempt(db, id));
+      if (p[2] === "assess" && method === "POST")
+        return json(requestAiAssessment(db, id), 202);
       if (p.length === 2 && method === "PATCH") {
         z.object({ disputed: z.literal(true) }).parse(await body());
         flagDisputed(db, id);

@@ -11,7 +11,7 @@ import { enqueueJob } from "../jobs/service";
 export type DocumentMeta = {
   id: string;
   moduleId: string;
-  role: "question" | "solution";
+  role: "question" | "solution" | "import";
   originalName: string;
   mime: string;
   storageKey: string;
@@ -235,7 +235,10 @@ export function readSource(
   attemptId?: string,
 ) {
   const d = getDocument(db, documentId);
-  if (d.role === "solution" && mode === "question")
+  if (
+    (d.role === "solution" && mode === "question") ||
+    (d.role === "import" && mode !== "review")
+  )
     throw new AppError("not_found", "Source not available.", 404);
   if (d.role === "solution" && mode === "attempt") {
     const ok = one(

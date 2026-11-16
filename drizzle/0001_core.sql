@@ -13,3 +13,4 @@ CREATE INDEX IF NOT EXISTS jobs_ready ON jobs(status,availableAt,leaseUntil);
 CREATE INDEX IF NOT EXISTS papers_module ON papers(moduleId);
 CREATE INDEX IF NOT EXISTS attempts_session ON attempts(sessionId,questionId,createdAt);
 CREATE TABLE IF NOT EXISTS aiArtifacts(cacheKey TEXT PRIMARY KEY,task TEXT NOT NULL,name TEXT NOT NULL,model TEXT NOT NULL,contentJson TEXT NOT NULL,createdAt TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS jsonImports(paperId TEXT PRIMARY KEY REFERENCES papers(id),moduleId TEXT NOT NULL REFERENCES modules(id),inputHash TEXT NOT NULL,originalDocumentId TEXT NOT NULL REFERENCES documents(id),UNIQUE(moduleId,inputHash));
