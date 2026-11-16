@@ -1,4 +1,7 @@
 import { test, expect } from "@playwright/test";
+import { execFileSync } from "node:child_process";
+import { mkdtempSync, readFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { portablePaper } from "../fixtures/portable-paper";
 test("own-chat JSON workflow provides prompts, repairs a rejected file and practises without automatic AI", async ({
   page,
@@ -163,4 +166,110 @@ test("JSON paste corrections invalidate the validation summary and stay usable o
     path: ".data/qa/json-import-mobile.png",
     fullPage: true,
   });
+});
+
+test("PDF attachments are visible before validation and resolve imported question and answer images", async ({
+  page,
+  request,
+}) => {
+  const mod = await (
+    await request.post("/api/modules", {
+      data: { code: `JP${Date.now()}`, title: "JSON with PDFs" },
+    })
+  ).json();
+  await page.goto(`/modules/${mod.id}`);
+  await page
+    .getByRole("button", { name: "Import JSON", exact: true })
+    .first()
+    .click();
+  await expect(
+    page.getByLabel("Question PDF (optional)", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByLabel("Answer key PDF (optional)", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByLabel("Question PDF (optional)", { exact: true }),
+  ).toBeInViewport({ ratio: 1 });
+  await expect(
+    page.getByLabel("Answer key PDF (optional)", { exact: true }),
+  ).toBeInViewport({ ratio: 1 });
+  const dir = mkdtempSync(`${tmpdir()}/json-pdf-ui-`),
+    file = dir + "/page.pdf";
+  execFileSync(".venv/bin/python", [
+    "-c",
+    "import pymupdf,sys;d=pymupdf.open();p=d.new_page();p.insert_text((72,72),'Local source figure');d.save(sys.argv[1])",
+    file,
+  ]);
+  const p = portablePaper();
+  p.title = "JSON with source images";
+  Object.assign(p.questions[0], {
+    context: [
+      {
+        kind: "page",
+        document: "question",
+        page: 1,
+        alt: "Original question figure",
+      },
+    ],
+    questionPages: [1],
+    answerPages: [1],
+  });
+  Object.assign(p.questions[0].answer, {
+    content: [
+      {
+        kind: "page",
+        document: "solution",
+        page: 1,
+        alt: "Original reference figure",
+      },
+    ],
+  });
+  await page.getByLabel("Paper JSON file", { exact: true }).setInputFiles({
+    name: "paper.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(JSON.stringify(p)),
+  });
+  await page
+    .getByLabel("Question PDF (optional)", { exact: true })
+    .setInputFiles({
+      name: "questions.pdf",
+      mimeType: "application/pdf",
+      buffer: readFileSync(file),
+    });
+  await page
+    .getByLabel("Answer key PDF (optional)", { exact: true })
+    .setInputFiles({
+      name: "answers.pdf",
+      mimeType: "application/pdf",
+      buffer: readFileSync(file),
+    });
+  await page
+    .getByRole("button", { name: "Validate JSON", exact: true })
+    .click();
+  await expect(
+    page.getByText("Ready to import: JSON with source images", { exact: true }),
+  ).toBeVisible();
+  await expect(page.getByLabel("Repair prompt", { exact: true })).toHaveCount(
+    0,
+  );
+  await page.screenshot({
+    path: ".data/qa/json-pdf-attachments.png",
+    fullPage: true,
+  });
+  await page.getByRole("button", { name: "Import paper", exact: true }).click();
+  await page.getByRole("link", { name: "Start practice", exact: true }).click();
+  await expect(
+    page.getByRole("img", { name: "Original question figure", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("img", { name: "Original reference figure", exact: true }),
+  ).toHaveCount(0);
+  await page.getByRole("radio", { name: "B 255" }).check();
+  await page
+    .getByRole("button", { name: "Submit answer", exact: true })
+    .click();
+  await expect(
+    page.getByRole("img", { name: "Original reference figure", exact: true }),
+  ).toBeVisible();
 });

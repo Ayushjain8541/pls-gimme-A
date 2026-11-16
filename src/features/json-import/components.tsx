@@ -156,14 +156,13 @@ export function JsonImportDialog({
           <FileJson size={23} /> Import a paper from JSON
         </h2>
         <p>
-          Use your own ChatGPT to prepare the paper, then bring the JSON here.
-          No app API key is needed to import or reveal answers.
+          Import your prepared JSON, with source PDFs if it uses page images. No
+          API key is needed.
         </p>
         <h3>1. Get the conversion prompt</h3>
-        <p className="notice">
-          Copy the prompt into your AI chat and attach the question PDF and
-          answer key. Ask it to return a complete .json file. If it generates
-          missing solutions, those answers must be labelled AI-generated.
+        <p className="muted">
+          Need a JSON file? Use this prompt in your own AI chat with the exam
+          PDFs.
         </p>
         <div className="import-actions">
           <button
@@ -223,6 +222,39 @@ export function JsonImportDialog({
           />
         </label>
         {filename && <p className="muted">Selected: {filename}</p>}
+        <section aria-labelledby="json-source-pdfs-title">
+          <h3 id="json-source-pdfs-title">Source PDFs (optional)</h3>
+          <p className="muted">
+            Add these before validation if your JSON uses PDF images. Files are
+            read locally, without AI conversion.
+          </p>
+          <div className="upload-grid">
+            <label>
+              Question PDF (optional)
+              <input
+                type="file"
+                accept=".pdf,application/pdf"
+                disabled={busy}
+                onChange={(e) => {
+                  changed();
+                  setQuestion(e.target.files?.[0] || null);
+                }}
+              />
+            </label>
+            <label>
+              Answer key PDF (optional)
+              <input
+                type="file"
+                accept=".pdf,application/pdf"
+                disabled={busy}
+                onChange={(e) => {
+                  changed();
+                  setSolution(e.target.files?.[0] || null);
+                }}
+              />
+            </label>
+          </div>
+        </section>
         <label>
           Or paste paper JSON
           <textarea
@@ -242,42 +274,7 @@ export function JsonImportDialog({
             }
           />
         </label>
-        <details>
-          <summary>
-            Attach source PDFs for diagrams and page references (optional)
-          </summary>
-          <p className="notice">
-            The default conversion prompt produces JSON-only content and needs
-            no PDFs here. Attach source PDFs only to display actual page-image
-            blocks in the optional PDF-backed mode. Page-number citations alone
-            do not require files. Reading an attached PDF happens locally,
-            without AI.
-          </p>
-          <label>
-            Question PDF (optional)
-            <input
-              type="file"
-              accept=".pdf,application/pdf"
-              disabled={busy}
-              onChange={(e) => {
-                changed();
-                setQuestion(e.target.files?.[0] || null);
-              }}
-            />
-          </label>
-          <label>
-            Answer key PDF (optional)
-            <input
-              type="file"
-              accept=".pdf,application/pdf"
-              disabled={busy}
-              onChange={(e) => {
-                changed();
-                setSolution(e.target.files?.[0] || null);
-              }}
-            />
-          </label>
-        </details>
+
         {error && (
           <p className="error" role="alert">
             {error}
