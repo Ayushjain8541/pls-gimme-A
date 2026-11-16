@@ -229,3 +229,68 @@ test("downloadable prompt examples import all supported response shapes without 
   expect(db.prepare("SELECT COUNT(*) n FROM jobs").get()).toEqual({ n: 0 });
   db.close();
 });
+
+test("page-number citations alone never require PDF uploads for self-contained JSON", async () => {
+  const { db, mod } = setup();
+  const content = portablePaper();
+  Object.assign(content.questions[0], {
+    questionPages: [2, 3],
+    answerPages: [4],
+  });
+  Object.assign(content.questions[1], { questionPages: [5], answerPages: [6] });
+  const input = { text: JSON.stringify(content) };
+  const validation = await handleRequest(
+    request(`/modules/${mod.id}/json-import/validate`, input),
+    db,
+  );
+  expect(validation.status).toBe(200);
+  expect((await validation.json()).ok).toBe(true);
+  const imported = await handleRequest(
+    request(`/modules/${mod.id}/json-import/confirm`, input),
+    db,
+  );
+  expect(imported.status).toBe(201);
+  const paper = await imported.json();
+  const review = await (
+    await handleRequest(
+      new Request(`http://127.0.0.1/api/papers/${paper.id}/review`),
+      db,
+    )
+  ).json();
+  expect(
+    review.revision.content.questions.every(
+      (q: { source: unknown[] }) => q.source.length === 0,
+    ),
+  ).toBe(true);
+  expect(
+    review.revision.content.answers.every(
+      (a: { source: unknown[] }) => a.source.length === 0,
+    ),
+  ).toBe(true);
+  expect(db.prepare("SELECT COUNT(*) n FROM jobs").get()).toEqual({ n: 0 });
+  db.close();
+});
+
+test("unresolved image blocks explain the JSON-only remedy and remain blocked rather than disappearing", async () => {
+  const { db, mod } = setup();
+  const content = portablePaper();
+  Object.assign(content.questions[0], {
+    context: [
+      { kind: "page", document: "question", page: 3, alt: "Essential circuit" },
+    ],
+  });
+  const response = await handleRequest(
+    request(`/modules/${mod.id}/json-import/confirm`, {
+      text: JSON.stringify(content),
+    }),
+    db,
+  );
+  expect(response.status).toBe(422);
+  const report = await response.json();
+  expect(report.issues[0].message).toContain("image");
+  expect(report.issues[0].message).toContain("JSON-only");
+  expect(report.issues[0].message).toContain("Markdown");
+  expect(report.repairPrompt).toContain("self-contained");
+  expect(db.prepare("SELECT COUNT(*) n FROM papers").get()).toEqual({ n: 0 });
+  db.close();
+});

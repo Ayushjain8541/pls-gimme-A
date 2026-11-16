@@ -53,6 +53,7 @@ test("own-chat JSON workflow provides prompts, repairs a rejected file and pract
   );
   const p = portablePaper();
   p.title = "Imported practice";
+  Object.assign(p.questions[0], { questionPages: [2, 3], answerPages: [4] });
   await page.getByLabel("Paper JSON file", { exact: true }).setInputFiles({
     name: "paper.json",
     mimeType: "application/json",

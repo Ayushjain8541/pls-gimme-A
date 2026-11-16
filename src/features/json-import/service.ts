@@ -97,7 +97,7 @@ export async function prepareJsonImport(
     if (!docs[role])
       issues.push({
         path: where,
-        message: `Attach the original ${role} PDF to resolve page ${page}, or replace this page reference with faithful Markdown.`,
+        message: `This block references an image on ${role} PDF page ${page}; the JSON does not contain that image. For JSON-only import, replace it with faithful Markdown or mark this item unsupported and remove unresolved image blocks. A PDF is needed only for optional image display.`,
       });
     else if (!docs[role]!.pages.some((p) => p.page === page))
       issues.push({
@@ -129,12 +129,16 @@ export async function prepareJsonImport(
             });
         }
       });
-    q.questionPages.forEach((page, j) =>
-      checkPage("question", page, `${prefix}.questionPages[${j}]`),
-    );
-    q.answerPages.forEach((page, j) =>
-      checkPage("solution", page, `${prefix}.answerPages[${j}]`),
-    );
+    // Plain page numbers are citations, not image dependencies. Resolve links only
+    // when the matching PDF was explicitly attached; never demand it for metadata.
+    if (docs.question)
+      q.questionPages.forEach((page, j) =>
+        checkPage("question", page, `${prefix}.questionPages[${j}]`),
+      );
+    if (docs.solution)
+      q.answerPages.forEach((page, j) =>
+        checkPage("solution", page, `${prefix}.answerPages[${j}]`),
+      );
   });
   if (issues.length) return failedImport(issues.slice(0, 100));
   const convert = (blocks: PortableBlock[]): Block[] =>
@@ -153,7 +157,15 @@ export async function prepareJsonImport(
     answers: [],
     explanations: [],
     issues: [],
-    notes: [],
+    notes: paper.questions.some(
+      (q) =>
+        (q.questionPages.length && !docs.question) ||
+        (q.answerPages.length && !docs.solution),
+    )
+      ? [
+          "PDF page numbers were supplied as informational citations without source files. They are preserved in the imported JSON; no source-page links were created.",
+        ]
+      : [],
   };
   paper.questions.forEach((q, order) => {
     const id = randomUUID();
@@ -168,18 +180,20 @@ export async function prepareJsonImport(
       role: "question" | "solution",
       given: number[],
     ): SourceRef[] =>
-      [
-        ...new Set([
-          ...given,
-          ...all.flatMap((b) =>
-            b.kind === "page" && b.document === role ? [b.page] : [],
-          ),
-        ]),
-      ].map((page) => ({
-        documentId: docs[role]!.documentId,
-        page,
-        bbox: null,
-      }));
+      docs[role]
+        ? [
+            ...new Set([
+              ...given,
+              ...all.flatMap((b) =>
+                b.kind === "page" && b.document === role ? [b.page] : [],
+              ),
+            ]),
+          ].map((page) => ({
+            documentId: docs[role]!.documentId,
+            page,
+            bbox: null,
+          }))
+        : [];
     content.questions.push({
       id,
       revisionId: "pending",

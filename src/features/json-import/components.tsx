@@ -247,9 +247,11 @@ export function JsonImportDialog({
             Attach source PDFs for diagrams and page references (optional)
           </summary>
           <p className="notice">
-            Attach the same PDFs used in your chat whenever the JSON refers to
-            their pages. Only local PDF reading happens here; this does not call
-            an AI provider.
+            The default conversion prompt produces JSON-only content and needs
+            no PDFs here. Attach source PDFs only to display actual page-image
+            blocks in the optional PDF-backed mode. Page-number citations alone
+            do not require files. Reading an attached PDF happens locally,
+            without AI.
           </p>
           <label>
             Question PDF (optional)
