@@ -1,0 +1,15 @@
+# JSON-first paper import
+
+The user requested a primary workflow where students copy a conversion prompt into their own ChatGPT, attach their question PDF and answer key, and import the resulting JSON. Invalid JSON must produce copyable repair instructions. Existing provider-based PDF conversion remains an optional path. This request authorizes inline implementation; routine format and UI choices below are implementation decisions.
+
+## Approach
+
+Use a versioned portable JSON contract rather than exposing internal database IDs or relying on AI to repair uploads. A module gets a primary Import JSON action and a secondary existing PDF upload action. The import dialog provides a copyable/downloadable prompt, schema/example downloads, JSON selection or paste, optional source PDFs, validation feedback, and a separate import confirmation. Invalid imports never create a paper. Valid imports publish atomically with no model call or worker job. Repeated identical imports in the same module return the same paper.
+
+Each question carries its exact leaf number, kind, content, choices with per-option explanations, answer origin/content/key, worked explanation, optional supplied rubric and source page references. Markdown and local PDF page blocks are supported; files never contain application asset IDs. Optional question/answer PDFs resolve page blocks to private local assets without AI. Answer-PDF pages cannot appear in question-facing content. Missing files, invalid pages, duplicate numbering, invalid options/keys, blank answers and missing explanations produce precise repair errors. The public schema is strict and versioned. Syntax/semantic errors return field paths plus a complete copyable repair prompt. Validation checks structure and references, not mathematical correctness.
+
+Imported MCQs grade locally using the supplied key. Imported written answers immediately reveal the reference and explanation for explicit self-review, without claiming an AI verdict or numeric grade. An explicit optional AI-assessment action retains existing written grading; existing follow-up chat remains optional AI. External AI answers retain unverified labels. Existing papers, attempts and PDF conversion behavior are preserved. Imports require no configured API key.
+
+## Bounds and validation
+
+JSON limit 4 MiB, 500 questions; existing PDF limits remain 25 MiB / 100 pages. All mutations use existing local-origin checks and owner/module scoping. Uploaded JSON is private. Content uses the existing safe Markdown renderer; remote images, HTML execution and answer disclosure before submission remain disallowed. A successful import creates a new paper; correcting a rejected upload creates no duplicates. Replacing already published papers is deferred; prior sessions remain immutable.
