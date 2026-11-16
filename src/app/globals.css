@@ -1930,3 +1930,86 @@ input[type="checkbox"] {
   cursor: pointer;
   font-weight: 550;
 }
+
+.import-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.json-import h2 {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.json-import h3 {
+  margin: 22px 0 10px;
+  font-size: 15px;
+}
+.json-import details {
+  margin: 14px 0;
+}
+.json-import summary {
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.json-import label {
+  display: block;
+  margin-top: 14px;
+}
+.json-import textarea {
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+}
+.import-json {
+  min-height: 160px;
+  font-family: monospace;
+  font-size: 12px;
+}
+.import-prompt {
+  height: 170px;
+  margin-top: 12px;
+  font-family: monospace;
+  font-size: 11px;
+}
+.import-report {
+  padding: 16px;
+  background: #fff3ef;
+  border: 1px solid #e5b9a8;
+  border-radius: 10px;
+  margin-top: 20px;
+  overflow-wrap: anywhere;
+}
+.import-report h3,
+.import-summary h3 {
+  margin-top: 0;
+}
+.import-report li {
+  font-size: 12px;
+  margin: 8px 0;
+}
+.import-summary {
+  margin-top: 20px;
+  padding: 16px;
+  background: #edf5ec;
+  border: 1px solid #b8d3b4;
+  border-radius: 10px;
+}
+.self-review-notice {
+  padding: 12px 0;
+  font-size: 13px;
+}
+@media (max-width: 600px) {
+  .page-heading {
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+  .json-import .modal-actions {
+    flex-wrap: wrap;
+  }
+  .import-actions {
+    gap: 8px;
+  }
+}

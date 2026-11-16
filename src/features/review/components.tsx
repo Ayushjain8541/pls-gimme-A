@@ -25,6 +25,7 @@ type ReviewView = {
   revision: ReturnType<typeof getLatestRevision>;
   assets: ReturnType<typeof assetManifest>;
   paper: Paper;
+  importedJson?: boolean;
 };
 const text = (blocks: Block[]) =>
   blocks
@@ -114,7 +115,9 @@ export function Review({ paperId }: { paperId: string }) {
           expectedRevision: saved.version,
         });
         setMessage(
-          "Saved. Explanations are preparing in the background. Return to the module to see when it’s ready.",
+          data?.importedJson
+            ? "Saved and published with your supplied explanations. No AI conversion was run."
+            : "Saved. Explanations are preparing in the background. Return to the module to see when it’s ready.",
         );
       } else
         setMessage(
@@ -165,20 +168,22 @@ export function Review({ paperId }: { paperId: string }) {
           </p>
         </div>
         <div className="inline-actions">
-          <button
-            className="button"
-            disabled={busy}
-            onClick={() => void reprocess()}
-          >
-            Convert again
-          </button>
+          {!data.importedJson && (
+            <button
+              className="button"
+              disabled={busy}
+              onClick={() => void reprocess()}
+            >
+              Convert again
+            </button>
+          )}
           <a
             className="button"
             href={`/api/documents/${data.paper.questionDocumentId}/source?mode=review`}
             target="_blank"
             rel="noreferrer"
           >
-            Original paper
+            {data.importedJson ? "Original file" : "Original paper"}
             <ExternalLink size={13} />
           </a>
         </div>

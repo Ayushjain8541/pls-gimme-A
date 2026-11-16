@@ -19,6 +19,7 @@ import { BatchUpload, uploadFile } from "@/features/batch/components";
 import type { Module } from "./service";
 import type { listPapers } from "./service";
 import type { Paper } from "@/features/documents/service";
+import { JsonImportDialog } from "@/features/json-import/components";
 type PaperCard = ReturnType<typeof listPapers>[number];
 export function ModuleDetail({ moduleId }: { moduleId: string }) {
   const { data: module, error: moduleError } = useApi<Module>(
@@ -29,6 +30,7 @@ export function ModuleDetail({ moduleId }: { moduleId: string }) {
       error,
       reload,
     } = useApi<PaperCard[]>(`/api/modules/${moduleId}/papers`, 2500);
+  const [jsonImport, setJsonImport] = useState(false);
   const [upload, setUpload] = useState(false),
     [missing, setMissing] = useState<string | null>(null),
     [filter, setFilter] = useState("all"),
@@ -69,10 +71,23 @@ export function ModuleDetail({ moduleId }: { moduleId: string }) {
             <p>{module?.title || "Loading your papers…"}</p>
           </div>
         </div>
-        <button className="button primary" onClick={() => setUpload(true)}>
-          <Plus size={16} />
-          Upload papers
-        </button>
+        <div className="import-actions">
+          <button
+            className="button"
+            title="Optional AI PDF conversion"
+            onClick={() => setUpload(true)}
+          >
+            <Upload size={16} />
+            Upload papers
+          </button>
+          <button
+            className="button primary"
+            onClick={() => setJsonImport(true)}
+          >
+            <Plus size={16} />
+            Import JSON
+          </button>
+        </div>
       </div>
       <div className="stats-row">
         <div className="stat">
@@ -222,15 +237,15 @@ export function ModuleDetail({ moduleId }: { moduleId: string }) {
             <p>
               {total
                 ? "Try another filter or search."
-                : "Upload your papers and we’ll turn them into focused practice."}
+                : "Import JSON prepared in your own AI chat, or use optional AI PDF conversion."}
             </p>
             {!total && (
               <button
                 className="button primary"
-                onClick={() => setUpload(true)}
+                onClick={() => setJsonImport(true)}
               >
                 <Upload size={15} />
-                Upload papers
+                Import JSON
               </button>
             )}
           </div>
@@ -241,6 +256,16 @@ export function ModuleDetail({ moduleId }: { moduleId: string }) {
         Your paper stays in its original order. Answers appear after you submit,
         with a full explanation before you move on.
       </p>
+      {jsonImport && (
+        <JsonImportDialog
+          moduleId={moduleId}
+          onClose={() => setJsonImport(false)}
+          onComplete={() => {
+            setJsonImport(false);
+            void reload();
+          }}
+        />
+      )}
       {upload && (
         <BatchUpload
           moduleId={moduleId}

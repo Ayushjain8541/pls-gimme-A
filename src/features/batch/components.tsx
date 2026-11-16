@@ -131,14 +131,12 @@ export function BatchUpload({
           <Upload size={24} />
         </span>
         <h2 id="upload-title">
-          {pairs
-            ? "A quick check, then you’re set."
-            : "Bring your papers together."}
+          {pairs ? "A quick check, then you’re set." : "Convert PDFs with AI."}
         </h2>
         <p>
           {pairs
             ? "Confirm which solutions belong to each paper. We’ll take care of the preparation."
-            : "Upload question papers and any solution files. They’ll stay in this module."}
+            : "Optional AI conversion uses the app’s configured provider and API key. For your own ChatGPT workflow, close this dialog and choose Import JSON."}
         </p>
         {!pairs ? (
           <>

@@ -76,9 +76,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <div className="setup-banner">
             <Sparkles size={15} />
             <span>
-              Connect Claude to prepare papers and assess written answers. Add
-              your API key in <code>.env.local</code>, then start the worker.
-              Your library is ready to use.
+              JSON import and reference practice work without an API key.
+              Connect Claude only for optional PDF conversion, AI assessment and
+              follow-up chat.
             </span>
           </div>
         )}

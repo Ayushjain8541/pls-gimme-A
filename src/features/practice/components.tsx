@@ -559,6 +559,19 @@ function FeedbackPanel({
 }) {
   const [error, setError] = useState("");
   const f = attempt.feedback;
+  const [assessing, setAssessing] = useState(false);
+  async function assess() {
+    setAssessing(true);
+    setError("");
+    try {
+      await post(`/api/attempts/${attempt.id}/assess`);
+      await onRefresh();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setAssessing(false);
+    }
+  }
   async function retry() {
     try {
       if (attempt.job) await post(`/api/jobs/${attempt.job.id}/retry`);
@@ -601,11 +614,41 @@ function FeedbackPanel({
         ) : (
           <AlertCircle size={21} />
         )}
-        <h2>{labels[f.verdict]}</h2>
+        <h2>
+          {f.assessmentMode === "self_review"
+            ? "Compare your answer"
+            : labels[f.verdict]}
+        </h2>
         {f.provisional && (
-          <span className="provisional">Provisional assessment</span>
+          <span className="provisional">
+            {f.assessmentMode === "self_review"
+              ? "Self-review"
+              : "Provisional assessment"}
+          </span>
         )}
       </div>
+      {f.assessmentMode === "self_review" && (
+        <div className="self-review-notice">
+          <p>
+            Your answer has not been graded. Compare it with the worked
+            explanation and reference below.
+          </p>
+          <button
+            className="button small"
+            disabled={assessing || attempt.status === "pending"}
+            onClick={() => void assess()}
+          >
+            {attempt.status === "pending"
+              ? "AI assessment in progress…"
+              : "Assess with AI (optional)"}
+          </button>
+          {attempt.job?.errorMessage && (
+            <p className="notice">
+              {attempt.job.errorMessage} Your reference remains available.
+            </p>
+          )}
+        </div>
+      )}
       {f.score && (
         <p className="muted" style={{ fontSize: 11 }}>
           {f.score.earned} / {f.score.possible} marks
@@ -722,6 +765,9 @@ function Followup({ attemptId }: { attemptId: string }) {
         />
         Question this feedback
       </summary>
+      <p className="notice">
+        Optional AI chat uses the app’s configured provider.
+      </p>
       {messages?.map((m) => (
         <div key={m.id} className={`chat-message ${m.role}`}>
           <small>

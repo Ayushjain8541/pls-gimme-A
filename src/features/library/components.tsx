@@ -68,7 +68,7 @@ export function Library() {
           </p>
           <div className="welcome-steps">
             <span>
-              <i>1</i>Upload your papers
+              <i>1</i>Import your JSON
             </span>
             <ArrowRight size={13} />
             <span>
