@@ -105,3 +105,11 @@ A user-reported failure exposed a mismatch: external conversion instructions enc
 The importer now accepts plain page citations without PDFs, retains them in the private original JSON and creates no invalid source links. If a corresponding PDF is explicitly attached, page bounds and ownership remain validated. Actual image blocks still require their source asset; the error explains the difference and gives a JSON-only repair path instead of only requesting another upload. Regressions cover no-PDF cited JSON import, missing-image rejection, and the browser's file-import workflow with citations and no source PDFs.
 
 Verified this correction with all 71 tests, the two JSON import browser workflows, lint, typecheck and production build. The restarted production validator accepts text-complete JSON carrying page citations without PDF uploads (HTTP 200), while an unresolved image block gives one focused JSON-only repair error (HTTP 422). The served conversion prompt contains the explicit self-contained default. Smoke checks performed validation only, created no papers and made no external model calls.
+
+## Discoverable PDF attachments in JSON import — 2026-11-17
+
+A user could not find the source-PDF inputs because they were hidden in a collapsed disclosure after the large JSON textarea. The inputs now appear openly below the JSON file chooser, before pasted JSON, with shorter guidance and a responsive two-column layout. Both controls fit fully within the initial desktop viewport. Users can select the question and answer PDFs before validation; no error-first workflow or AI conversion is required.
+
+A browser regression first reproduced hidden inputs, then caught controls clipped below the modal viewport. It now verifies initial visibility, JSON plus both local PDF uploads, successful validation/import, question-image display and answer-image withholding until submission. All three JSON browser workflows, 71 unit/integration tests, lint and TypeScript passed. Source PDFs remain optional for self-contained JSON and informational citations.
+
+Production build passed with the three existing tracing warnings. The restarted local app shows both PDF fields fully inside the initial desktop modal viewport, with no browser page errors. Read-only production verification created no papers and submitted no answers.
