@@ -160,3 +160,45 @@ test("portable image pages require matching local source PDFs and keep solution 
   expect(db.prepare("SELECT COUNT(*) n FROM papers").get()).toEqual({ n: 1 });
   db.close();
 });
+
+test("legacy PDF repair cannot clear explanations or trigger paid regeneration on JSON papers", async () => {
+  const { db, mod } = setup();
+  const p = await (
+    await handleRequest(
+      request(`/modules/${mod.id}/json-import/confirm`, {
+        text: JSON.stringify(portablePaper()),
+      }),
+      db,
+    )
+  ).json();
+  const view = await (
+    await handleRequest(
+      new Request(`http://127.0.0.1/api/papers/${p.id}/review`),
+      db,
+    )
+  ).json();
+  const update = await handleRequest(
+    new Request(`http://127.0.0.1/api/papers/${p.id}/review`, {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        revisionId: view.revision.id,
+        expectedRevision: view.revision.version,
+        content: { ...view.revision.content, explanations: [] },
+      }),
+    }),
+    db,
+  );
+  expect(update.status).toBe(409);
+  expect((await update.json()).error.code).toBe("json_import_read_only");
+  const again = await (
+    await handleRequest(
+      new Request(`http://127.0.0.1/api/papers/${p.id}/review`),
+      db,
+    )
+  ).json();
+  expect(again.revision.content.explanations).toHaveLength(2);
+  expect(again.revision.status).toBe("published");
+  expect(db.prepare("SELECT COUNT(*) n FROM jobs").get()).toEqual({ n: 0 });
+  db.close();
+});

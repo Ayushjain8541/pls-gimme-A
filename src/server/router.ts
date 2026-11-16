@@ -193,6 +193,12 @@ export async function handleRequest(
             importedJson: isJsonPaper(db, id),
           });
         if (method === "PUT") {
+          if (isJsonPaper(db, id))
+            throw new AppError(
+              "json_import_read_only",
+              "To correct this paper, import a corrected JSON file from its module. Supplied explanations must be updated with the questions and answers.",
+              409,
+            );
           const input = z
             .object({
               revisionId: z.string(),
@@ -214,6 +220,12 @@ export async function handleRequest(
         }
       }
       if (p[2] === "publish" && method === "POST") {
+        if (isJsonPaper(db, id))
+          throw new AppError(
+            "json_import_read_only",
+            "Import a corrected JSON file instead of preparing this imported paper.",
+            409,
+          );
         const input = z
             .object({ draftId: z.string(), expectedRevision: z.number().int() })
             .parse(await body()),
@@ -231,15 +243,6 @@ export async function handleRequest(
         const valid = validateRevision(r.content);
         if (!valid.ok)
           throw new AppError("needs_review", valid.issues.join("\n"), 409);
-        if (isJsonPaper(db, id)) {
-          const ready = validateRevision(r.content, true);
-          if (!ready.ok)
-            throw new AppError("needs_review", ready.issues.join("\n"), 409);
-          const { publishRevision } =
-            await import("../features/review/repository");
-          publishRevision(db, id, r.id, r.version);
-          return json({ published: true });
-        }
         const j = enqueueJob(db, "ingest", `publish:${r.id}:${r.version}`, {
           paperId: id,
           draftId: r.id,

@@ -31,13 +31,11 @@ test("own-chat JSON workflow provides prompts, repairs a rejected file and pract
   const download = await request.get("/api/import-format?download=example");
   expect(download.headers()["content-disposition"]).toContain("attachment");
   expect((await download.json()).formatVersion).toBe(1);
-  await page
-    .getByLabel("Paper JSON file", { exact: true })
-    .setInputFiles({
-      name: "paper.json",
-      mimeType: "application/json",
-      buffer: Buffer.from('{"formatVersion":'),
-    });
+  await page.getByLabel("Paper JSON file", { exact: true }).setInputFiles({
+    name: "paper.json",
+    mimeType: "application/json",
+    buffer: Buffer.from('{"formatVersion":'),
+  });
   await page
     .getByRole("button", { name: "Validate JSON", exact: true })
     .click();
@@ -55,13 +53,11 @@ test("own-chat JSON workflow provides prompts, repairs a rejected file and pract
   );
   const p = portablePaper();
   p.title = "Imported practice";
-  await page
-    .getByLabel("Paper JSON file", { exact: true })
-    .setInputFiles({
-      name: "paper.json",
-      mimeType: "application/json",
-      buffer: Buffer.from(JSON.stringify(p)),
-    });
+  await page.getByLabel("Paper JSON file", { exact: true }).setInputFiles({
+    name: "paper.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(JSON.stringify(p)),
+  });
   await page
     .getByRole("button", { name: "Validate JSON", exact: true })
     .click();
@@ -117,6 +113,17 @@ test("own-chat JSON workflow provides prompts, repairs a rejected file and pract
     path: ".data/qa/json-self-review.png",
     fullPage: true,
   });
+  const paperId = new URL(page.url()).pathname.split("/")[2];
+  await page.goto(`/papers/${paperId}/review`);
+  await expect(
+    page.getByText(
+      "To correct this paper, import a corrected JSON file from its module.",
+      { exact: true },
+    ),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Save and prepare", exact: true }),
+  ).toHaveCount(0);
 });
 test("JSON paste corrections invalidate the validation summary and stay usable on mobile", async ({
   page,

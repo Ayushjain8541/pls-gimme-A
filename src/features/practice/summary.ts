@@ -8,6 +8,7 @@ export function getSummary(db: AppDb, sessionId: string) {
       number: q.number,
       attemptId: q.attempt!.id,
       verdict: q.attempt!.feedback!.verdict,
+      assessmentMode: q.attempt!.feedback!.assessmentMode,
       provisional: q.attempt!.feedback!.provisional,
     }));
   return {

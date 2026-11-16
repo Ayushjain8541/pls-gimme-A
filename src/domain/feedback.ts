@@ -23,6 +23,7 @@ export type Assessment = z.infer<typeof AssessmentSchema>;
 export type Feedback = Assessment & {
   provisional: boolean;
   assessmentMode?: "self_review";
+  explanationOrigin?: "imported";
   explanationNeedsReview?: boolean;
   reference: ReferenceAnswer;
 };

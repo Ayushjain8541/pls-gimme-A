@@ -675,7 +675,13 @@ function FeedbackPanel({
         </>
       )}
       <div className="feedback-label">
-        THE EXPLANATION <span>· AI-generated</span>
+        THE EXPLANATION{" "}
+        <span>
+          ·{" "}
+          {f.explanationOrigin === "imported"
+            ? "Supplied in JSON"
+            : "AI-generated"}
+        </span>
       </div>
       {f.explanationNeedsReview && (
         <p className="muted">
@@ -824,7 +830,12 @@ export function Summary({
       </p>
     );
   const correct = s.results.filter((r) => r.verdict === "correct").length,
-    provisional = s.results.filter((r) => r.provisional).length;
+    provisional = s.results.filter(
+      (r) => r.provisional && r.assessmentMode !== "self_review",
+    ).length,
+    selfReviews = s.results.filter(
+      (r) => r.assessmentMode === "self_review",
+    ).length;
   return (
     <>
       <div className="breadcrumb">
@@ -842,8 +853,8 @@ export function Summary({
               : "Every question is a step forward."}
         </h1>
         <p>
-          {s.title} · {s.progress.assessed} of {s.progress.included} included
-          questions assessed
+          {s.title} · {s.progress.submitted} of {s.progress.included} included
+          questions answered
         </p>
         <Link className="button primary" href={`/modules/${s.moduleId}`}>
           Back to module
@@ -867,6 +878,12 @@ export function Summary({
           <span>Provisional assessments</span>
         </div>
       </div>
+      {selfReviews > 0 && (
+        <p className="notice">
+          {selfReviews} written response(s) are available for self-review and
+          have not been graded.
+        </p>
+      )}
       {s.excluded.length > 0 && (
         <p className="notice">
           Excluded from scoring: {s.excluded.join(", ")}. Drawing or unsupported
@@ -884,10 +901,16 @@ export function Summary({
           <div className="paper-row" key={r.attemptId}>
             <strong style={{ fontSize: 12 }}>Question {r.number}</strong>
             <span className="muted" style={{ fontSize: 11 }}>
-              {r.verdict.replaceAll("_", " ")}
+              {r.assessmentMode === "self_review"
+                ? "self-review"
+                : r.verdict.replaceAll("_", " ")}
             </span>
             <span className="muted" style={{ fontSize: 10 }}>
-              {r.provisional ? "Provisional" : "Official key"}
+              {r.assessmentMode === "self_review"
+                ? "Not graded"
+                : r.provisional
+                  ? "Provisional"
+                  : "Official key"}
             </span>
             <Link className="source-link" href={`/papers/${paperId}/practice`}>
               Revisit

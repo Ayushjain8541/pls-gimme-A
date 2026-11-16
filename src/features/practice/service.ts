@@ -148,7 +148,9 @@ export function getSession(db: AppDb, id: string) {
         excluded: q.excluded,
         skipped: !!q.skipReason,
         submitted: !!q.attempt,
-        assessed: q.attempt?.status === "succeeded",
+        assessed:
+          q.attempt?.status === "succeeded" ||
+          q.attempt?.feedback?.assessmentMode === "self_review",
       })),
     ),
   };
@@ -258,7 +260,7 @@ export function submitAttempt(
       );
     const a = requireValue(r.answers.find((a) => a.questionId === q.id)),
       e = requireValue(r.explanations.find((e) => e.questionId === q.id));
-    const feedback = q.kind.includes("select")
+    const feedback: Feedback | null = q.kind.includes("select")
       ? gradeMcq(q, input.response, a, e)
       : one(db, "SELECT paperId FROM jsonImports WHERE paperId=?", s.paperId)
         ? {
@@ -272,6 +274,11 @@ export function submitAttempt(
             reference: a,
           }
         : null;
+    if (
+      feedback &&
+      one(db, "SELECT paperId FROM jsonImports WHERE paperId=?", s.paperId)
+    )
+      feedback.explanationOrigin = "imported";
     const id = randomUUID();
     db.prepare(
       "INSERT INTO attempts(id,sessionId,questionId,requestId,responseJson,status,feedbackJson,createdAt) VALUES(?,?,?,?,?,?,?,?)",

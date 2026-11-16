@@ -48,6 +48,14 @@ test("written JSON practice reveals explanations without a provider and AI asses
   });
   expect(attempt.feedback.worked[0].text).toContain("extra negative");
   expect(db.prepare("SELECT COUNT(*) n FROM jobs").get()).toEqual({ n: 0 });
+  const summary = await (
+    await handleRequest(
+      new Request(`http://127.0.0.1/api/sessions/${s.id}/summary`),
+      db,
+    )
+  ).json();
+  expect(summary.results[0].assessmentMode).toBe("self_review");
+  expect(attempt.feedback.explanationOrigin).toBe("imported");
   const noKey = await handleRequest(
     req(`/attempts/${attempt.id}/assess`, {}),
     db,
@@ -61,6 +69,13 @@ test("written JSON practice reveals explanations without a provider and AI asses
   );
   expect(optional.status).toBe(202);
   expect((await optional.json()).status).toBe("pending");
+  const during = await (
+    await handleRequest(
+      new Request(`http://127.0.0.1/api/sessions/${s.id}`),
+      db,
+    )
+  ).json();
+  expect(during.progress.assessed).toBe(1);
   await handleRequest(req(`/attempts/${attempt.id}/assess`, {}), db);
   expect(db.prepare("SELECT COUNT(*) n FROM jobs").get()).toEqual({ n: 1 });
   const fake: AiGateway = {

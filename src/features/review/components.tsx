@@ -149,6 +149,62 @@ export function Review({ paperId }: { paperId: string }) {
         {loadError || "Loading the converted paper…"}
       </p>
     );
+  if (data.importedJson)
+    return (
+      <>
+        <div className="breadcrumb">
+          <Link href={`/modules/${data.paper.moduleId}`}>Module</Link>
+          <ChevronRight size={12} />
+          <span>Imported paper</span>
+        </div>
+        <h1>{data.paper.title}</h1>
+        <p className="notice">
+          To correct this paper, import a corrected JSON file from its module.
+        </p>
+        <p className="notice">
+          This view is read-only so questions, reference answers and supplied
+          explanations stay together. Your existing attempts keep their original
+          revision.
+        </p>
+        <Link className="button" href={`/modules/${data.paper.moduleId}`}>
+          Back to module
+          <ArrowRight size={14} />
+        </Link>
+        {content.questions.map((q) => (
+          <section className="review-item" key={q.id}>
+            <h2>Question {q.number}</h2>
+            <RichContent blocks={[...q.context, ...q.prompt]} review />
+            {q.options.map((o) => (
+              <div key={o.id}>
+                <strong>{o.id}</strong>
+                <RichContent blocks={o.content} review />
+              </div>
+            ))}
+            {content.answers
+              .filter((a) => a.questionId === q.id)
+              .map((a) => (
+                <div key={a.questionId}>
+                  <h3>
+                    Reference answer ·{" "}
+                    {a.origin === "official"
+                      ? "Course-provided"
+                      : "AI-generated, unverified"}
+                  </h3>
+                  <RichContent blocks={a.content} review />
+                </div>
+              ))}
+            {content.explanations
+              .filter((e) => e.questionId === q.id)
+              .map((e) => (
+                <div key={e.questionId}>
+                  <h3>Supplied explanation</h3>
+                  <RichContent blocks={e.worked} review />
+                </div>
+              ))}
+          </section>
+        ))}
+      </>
+    );
   return (
     <>
       <div className="breadcrumb">
