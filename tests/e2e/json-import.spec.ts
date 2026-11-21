@@ -231,6 +231,17 @@ test("PDF attachments are visible before validation and resolve imported questio
     buffer: Buffer.from(JSON.stringify(p)),
   });
   await page
+    .getByRole("button", { name: "Validate JSON", exact: true })
+    .click();
+  await expect(page.getByLabel("Repair prompt", { exact: true })).toHaveValue(
+    /Preserve existing valid page blocks/,
+  );
+  await expect(
+    page.getByRole("listitem").filter({
+      hasText: /Select the original PDF in "Question PDF \(optional\)"/,
+    }),
+  ).toBeVisible();
+  await page
     .getByLabel("Question PDF (optional)", { exact: true })
     .setInputFiles({
       name: "questions.pdf",

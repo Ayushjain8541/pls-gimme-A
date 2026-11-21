@@ -200,8 +200,8 @@ export function JsonImportDialog({
         <h3>1. Get the conversion prompt</h3>
         <p className="muted">
           Need a JSON file? Use this prompt in your own AI chat with the exam
-          PDFs. You can also download page-marked source Markdown below to help
-          the chat copy the wording faithfully.
+          PDFs. It preserves diagrams as PDF images; attach the same PDFs below
+          when importing. Source Markdown below helps copy original wording.
         </p>
         <div className="import-actions">
           <button
@@ -265,8 +265,8 @@ export function JsonImportDialog({
           <h3 id="json-source-pdfs-title">Source PDFs (optional)</h3>
           <p className="muted">
             Choose PDFs here to download source text for your AI chat, even
-            before you have JSON. They can also supply page images at import.
-            Extraction is local and uses no AI.
+            before you have JSON. Required for any PDF images referenced in your
+            JSON; page citations alone do not display diagrams. No AI calls.
           </p>
           <div className="upload-grid">
             <div>
