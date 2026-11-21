@@ -271,7 +271,7 @@ test("page-number citations alone never require PDF uploads for self-contained J
   db.close();
 });
 
-test("unresolved image blocks explain the JSON-only remedy and remain blocked rather than disappearing", async () => {
+test("unresolved image blocks request their PDF and stay blocked rather than becoming descriptions", async () => {
   const { db, mod } = setup();
   const content = portablePaper();
   Object.assign(content.questions[0], {
@@ -289,8 +289,9 @@ test("unresolved image blocks explain the JSON-only remedy and remain blocked ra
   const report = await response.json();
   expect(report.issues[0].message).toContain("image");
   expect(report.issues[0].message).toContain("JSON-only");
-  expect(report.issues[0].message).toContain("Markdown");
-  expect(report.repairPrompt).toContain("self-contained");
+  expect(report.issues[0].message).toContain("Question PDF (optional)");
+  expect(report.issues[0].message).toContain("Do not replace the diagram");
+  expect(report.repairPrompt).toContain("Preserve existing valid page blocks");
   expect(db.prepare("SELECT COUNT(*) n FROM papers").get()).toEqual({ n: 0 });
   db.close();
 });

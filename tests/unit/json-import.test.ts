@@ -28,6 +28,17 @@ test("syntax errors return a copyable repair request with a location and full ou
   expect(conversionPrompt).toContain("19(a)");
   expect(conversionPrompt).toContain("external_ai");
 });
+test("conversion and repair preserve original diagram images by default", () => {
+  for (const prompt of [conversionPrompt, buildRepairPrompt([])]) {
+    expect(prompt).toContain("DEFAULT MODE: PDF-BACKED");
+    expect(prompt).toContain("Do NOT replace an original diagram with a prose description");
+    expect(prompt).toContain('"kind":"page","document":"question"');
+    expect(prompt).toContain("Question PDF (optional)");
+    expect(prompt).not.toContain("DEFAULT MODE: SELF-CONTAINED JSON ONLY");
+    expect(prompt).not.toContain("provide a faithful text representation only if");
+    expect(prompt).not.toContain("Preserve PDF-backed blocks only when I explicitly ask");
+  }
+});
 test.each([
   "number",
   "key",

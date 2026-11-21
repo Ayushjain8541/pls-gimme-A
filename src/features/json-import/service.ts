@@ -97,7 +97,7 @@ export async function prepareJsonImport(
     if (!docs[role])
       issues.push({
         path: where,
-        message: `This block references an image on ${role} PDF page ${page}; the JSON does not contain that image. For JSON-only import, replace it with faithful Markdown or mark this item unsupported and remove unresolved image blocks. A PDF is needed only for optional image display.`,
+        message: `This block references an image on ${role} PDF page ${page}; the JSON does not contain that image. Select the original PDF in "${role === "question" ? "Question PDF (optional)" : "Answer key PDF (optional)"}" under Source PDFs, then validate again. Keep this page block. Do not replace the diagram with a description. For explicitly chosen JSON-only import without PDFs, retain the image-dependent item as unsupported and remove unresolved page blocks.`,
       });
     else if (!docs[role]!.pages.some((p) => p.page === page))
       issues.push({
