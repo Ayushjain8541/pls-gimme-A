@@ -20,6 +20,7 @@ import {
   readSource,
   storageDir,
 } from "../features/documents/service";
+import { sourceMarkdown } from "../features/documents/markdown";
 import { buildExternalSolutionPrompt } from "../features/documents/solution-prompt";
 import { suggestPairs, confirmBatch } from "../features/batch/service";
 import {
@@ -101,6 +102,20 @@ export async function handleRequest(
       const moduleId = p[1];
       if (p.length === 2 && method === "GET")
         return json(getModule(db, moduleId));
+      if (p[2] === "source-markdown" && method === "POST") {
+        const input = z
+          .strictObject({ documentId: z.string().min(1).max(100) })
+          .parse(await body());
+        const exported = await sourceMarkdown(db, moduleId, input.documentId);
+        return new Response(exported.markdown, {
+          headers: {
+            "Content-Type": "text/markdown; charset=utf-8",
+            "Content-Disposition": `attachment; filename*=UTF-8''${encodeURIComponent(exported.filename)}`,
+            "Cache-Control": "no-store",
+            "X-Content-Type-Options": "nosniff",
+          },
+        });
+      }
       if (p[2] === "json-import" && method === "POST") {
         const input = await readJson(req, 12 * 1024 * 1024);
         if (p[3] === "validate") {
