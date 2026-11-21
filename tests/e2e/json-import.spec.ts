@@ -333,3 +333,64 @@ test("register dollars stay literal in imported questions while real LaTeX still
     fullPage: true,
   });
 });
+
+test("source Markdown can be prepared before JSON exists without importing a paper", async ({
+  page,
+  request,
+}) => {
+  const mod = await (
+    await request.post("/api/modules", {
+      data: { code: `SRC${Date.now()}`, title: "Verbatim source handoff" },
+    })
+  ).json();
+  const dir = mkdtempSync(`${tmpdir()}/source-handoff-`),
+    file = dir + "/input.pdf";
+  execFileSync(".venv/bin/python", [
+    "-c",
+    "import pymupdf,sys;d=pymupdf.open();p=d.new_page();p.insert_text((72,72),'Keep this complete sentence, including this assumption.\\nA transfer takes seven cycles, including restart.');d.save(sys.argv[1])",
+    file,
+  ]);
+  await page.goto(`/modules/${mod.id}`);
+  await page
+    .getByRole("button", { name: "Import JSON", exact: true })
+    .first()
+    .click();
+  await page
+    .getByLabel("Question PDF (optional)", { exact: true })
+    .setInputFiles({
+      name: "questions.pdf",
+      mimeType: "application/pdf",
+      buffer: readFileSync(file),
+    });
+  await page
+    .getByLabel("Answer key PDF (optional)", { exact: true })
+    .setInputFiles({
+      name: "answers.pdf",
+      mimeType: "application/pdf",
+      buffer: readFileSync(file),
+    });
+  for (const [label, filename] of [
+    ["Download question Markdown", "questions-source.md"],
+    ["Download answer Markdown", "answers-source.md"],
+  ]) {
+    const downloadPromise = page.waitForEvent("download");
+    await page.getByRole("button", { name: label, exact: true }).click();
+    const download = await downloadPromise;
+    expect(download.suggestedFilename()).toBe(filename);
+    const path = await download.path();
+    expect(path).not.toBeNull();
+    const text = readFileSync(path!, "utf8");
+    expect(text).toContain(
+      "Keep this complete sentence, including this assumption.",
+    );
+    expect(text).toContain("A transfer takes seven cycles, including restart.");
+    expect(text).toContain("PDF page 1");
+  }
+  await expect(
+    page.getByRole("button", { name: "Import paper", exact: true }),
+  ).toBeDisabled();
+  const papers = await (
+    await request.get(`/api/modules/${mod.id}/papers`)
+  ).json();
+  expect(papers).toEqual([]);
+});

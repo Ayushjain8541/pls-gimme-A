@@ -35,6 +35,7 @@ export function JsonImportDialog({
     [question, setQuestion] = useState<File | null>(null),
     [solution, setSolution] = useState<File | null>(null),
     [busy, setBusy] = useState(false),
+    [exporting, setExporting] = useState<"question" | "solution" | null>(null),
     [error, setError] = useState(""),
     [report, setReport] = useState<Report | null>(null),
     [summary, setSummary] = useState<Summary | null>(null),
@@ -72,6 +73,49 @@ export function JsonImportDialog({
       setError("Could not read this JSON file.");
     }
   }
+  async function uploaded(role: "question" | "solution", file: File) {
+    const key = role + fileKey(file);
+    let id = docs.current.get(key);
+    if (!id) {
+      id = (await uploadFile(moduleId, file, role)).id;
+      docs.current.set(key, id);
+    }
+    return id;
+  }
+  async function downloadSource(role: "question" | "solution") {
+    const file = role === "question" ? question : solution;
+    if (!file) return;
+    setBusy(true);
+    setExporting(role);
+    setError("");
+    try {
+      const documentId = await uploaded(role, file);
+      const response = await fetch(`/api/modules/${moduleId}/source-markdown`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ documentId }),
+      });
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(
+          data.error?.message || "Could not extract the source text.",
+        );
+      }
+      const url = URL.createObjectURL(await response.blob());
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = file.name.replace(/\.pdf$/i, "") + "-source.md";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setExporting(null);
+      setBusy(false);
+    }
+  }
   async function input() {
     const result: {
       text: string;
@@ -83,13 +127,7 @@ export function JsonImportDialog({
       ["solution", solution],
     ] as const) {
       if (!file) continue;
-      const key = role + fileKey(file);
-      let id = docs.current.get(key);
-      if (!id) {
-        id = (await uploadFile(moduleId, file, role)).id;
-        docs.current.set(key, id);
-      }
-      result[`${role}DocumentId`] = id;
+      result[`${role}DocumentId`] = await uploaded(role, file);
     }
     return result;
   }
@@ -162,7 +200,8 @@ export function JsonImportDialog({
         <h3>1. Get the conversion prompt</h3>
         <p className="muted">
           Need a JSON file? Use this prompt in your own AI chat with the exam
-          PDFs.
+          PDFs. You can also download page-marked source Markdown below to help
+          the chat copy the wording faithfully.
         </p>
         <div className="import-actions">
           <button
@@ -225,34 +264,59 @@ export function JsonImportDialog({
         <section aria-labelledby="json-source-pdfs-title">
           <h3 id="json-source-pdfs-title">Source PDFs (optional)</h3>
           <p className="muted">
-            Add these before validation if your JSON uses PDF images. Files are
-            read locally, without AI conversion.
+            Choose PDFs here to download source text for your AI chat, even
+            before you have JSON. They can also supply page images at import.
+            Extraction is local and uses no AI.
           </p>
           <div className="upload-grid">
-            <label>
-              Question PDF (optional)
-              <input
-                type="file"
-                accept=".pdf,application/pdf"
-                disabled={busy}
-                onChange={(e) => {
-                  changed();
-                  setQuestion(e.target.files?.[0] || null);
-                }}
-              />
-            </label>
-            <label>
-              Answer key PDF (optional)
-              <input
-                type="file"
-                accept=".pdf,application/pdf"
-                disabled={busy}
-                onChange={(e) => {
-                  changed();
-                  setSolution(e.target.files?.[0] || null);
-                }}
-              />
-            </label>
+            <div>
+              <label>
+                Question PDF (optional)
+                <input
+                  type="file"
+                  accept=".pdf,application/pdf"
+                  disabled={busy}
+                  onChange={(e) => {
+                    changed();
+                    setQuestion(e.target.files?.[0] || null);
+                  }}
+                />
+              </label>
+              <button
+                className="button small"
+                disabled={busy || !question}
+                onClick={() => void downloadSource("question")}
+              >
+                <Download size={13} />
+                {exporting === "question"
+                  ? "Preparing source…"
+                  : "Download question Markdown"}
+              </button>
+            </div>
+            <div>
+              <label>
+                Answer key PDF (optional)
+                <input
+                  type="file"
+                  accept=".pdf,application/pdf"
+                  disabled={busy}
+                  onChange={(e) => {
+                    changed();
+                    setSolution(e.target.files?.[0] || null);
+                  }}
+                />
+              </label>
+              <button
+                className="button small"
+                disabled={busy || !solution}
+                onClick={() => void downloadSource("solution")}
+              >
+                <Download size={13} />
+                {exporting === "solution"
+                  ? "Preparing source…"
+                  : "Download answer Markdown"}
+              </button>
+            </div>
           </div>
         </section>
         <label>
