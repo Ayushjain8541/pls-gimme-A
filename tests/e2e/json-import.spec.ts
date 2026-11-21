@@ -273,3 +273,63 @@ test("PDF attachments are visible before validation and resolve imported questio
     page.getByRole("img", { name: "Original reference figure", exact: true }),
   ).toBeVisible();
 });
+
+test("register dollars stay literal in imported questions while real LaTeX still renders", async ({
+  page,
+  request,
+}) => {
+  const mod = await (
+    await request.post("/api/modules", {
+      data: { code: `FMT${Date.now()}`, title: "Register formatting" },
+    })
+  ).json();
+  const p = portablePaper();
+  p.title = "Assembly formatting";
+  p.questions = p.questions.slice(0, 1);
+  const q = p.questions[0];
+  q.number = "14";
+  Object.assign(q, {
+    context: [{ kind: "markdown", text: "A range formula is $2^n - 1$." }],
+  });
+  q.prompt = [
+    {
+      kind: "markdown",
+      text: "The source register $t0 currently holds 0x12345678. Determine the value in $t1 after `andi $t1, $t0, 255`.",
+    },
+  ];
+  q.options[0].content = [{ kind: "markdown", text: "0x78" }];
+  q.options[1].content = [{ kind: "markdown", text: "0x12340078" }];
+  q.options[0].explanation = [
+    {
+      kind: "markdown",
+      text: "Correct: AND with zero-extended 0x00FF gives 0x78.",
+    },
+  ];
+  q.options[1].explanation = [
+    { kind: "markdown", text: "The upper half is cleared by the mask." },
+  ];
+  q.answer.content = [{ kind: "markdown", text: "0x78" }];
+  q.explanation = [
+    { kind: "markdown", text: "0x12345678 AND 0x000000FF = 0x78." },
+  ];
+  const result = await request.post(
+    `/api/modules/${mod.id}/json-import/confirm`,
+    { data: { text: JSON.stringify(p) } },
+  );
+  expect(result.status()).toBe(201);
+  const paper = await result.json();
+  await page.goto(`/papers/${paper.id}/practice`);
+  await expect(
+    page.getByText(
+      /The source register \$t0 currently holds 0x12345678\. Determine the value in \$t1/,
+    ),
+  ).toBeVisible();
+  await expect(page.locator(".katex")).toHaveCount(1);
+  await expect(
+    page.locator("code").filter({ hasText: "andi $t1, $t0, 255" }),
+  ).toBeVisible();
+  await page.screenshot({
+    path: ".data/qa/register-formatting.png",
+    fullPage: true,
+  });
+});

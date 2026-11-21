@@ -3,6 +3,7 @@ import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
+import { remarkRegisters } from "./remark-registers";
 import type { Block } from "@/domain/content";
 export function RichContent({
   blocks,
@@ -19,7 +20,7 @@ export function RichContent({
         b.kind === "markdown" ? (
           <Markdown
             key={i}
-            remarkPlugins={[remarkGfm, remarkMath]}
+            remarkPlugins={[remarkGfm, remarkMath, remarkRegisters]}
             rehypePlugins={[rehypeKatex]}
             components={{
               img: () => null,
